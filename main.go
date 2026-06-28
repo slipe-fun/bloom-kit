@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	client := api.NewClient("http://localhost:8080")
+	client := api.NewClient("https://api.bloomapp.pw")
 
 	userClient := user.NewUserClient(client)
 
@@ -45,6 +45,11 @@ func main() {
 				Nonce:      base64.StdEncoding.EncodeToString(encryptedSecretKeys.Nonce),
 				Salt:       base64.StdEncoding.EncodeToString(encryptedSecretKeys.Salt),
 				Signature:  base64.StdEncoding.EncodeToString(encryptedSecretKeys.Signature),
+			},
+			IdentityPublicKeys: domain.IdentityPublicKeys{
+				MlKemPublicKey: base64.StdEncoding.EncodeToString(user.PublicKeys.MlKem768),
+				EcdhPublicKey:  base64.StdEncoding.EncodeToString(user.PublicKeys.X448),
+				EdPublicKey:    base64.StdEncoding.EncodeToString(user.PublicKeys.Ed448),
 			},
 		},
 		EncryptedMasterKey: domain.EncryptedKey{
