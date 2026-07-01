@@ -7,6 +7,7 @@ import (
 
 	"github.com/slipe-fun/bloom-kit/api"
 	authClient "github.com/slipe-fun/bloom-kit/api/auth"
+	userClientM "github.com/slipe-fun/bloom-kit/api/user"
 	authManager "github.com/slipe-fun/bloom-kit/auth"
 	"github.com/slipe-fun/skid-v4/pkg/identity"
 	"github.com/tink-crypto/tink-go/v2/subtle/random"
@@ -15,7 +16,8 @@ import (
 func main() {
 	client := api.NewClient("https://api.bloomapp.pw")
 
-	authClient := authClient.NewUserClient(client)
+	authClient := authClient.NewAuthClient(client)
+	userClient := userClientM.NewUserClient(client)
 
 	authManager := authManager.NewAuthManager(authClient)
 
@@ -34,6 +36,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	client.SetToken(registerResponse.Token)
 
 	fmt.Println("User ID:", registerResponse.User.ID)
 
@@ -54,10 +58,62 @@ func main() {
 	}
 	defer decryptedSecret.Wipe()
 
+	client.SetToken(finishLoginResponse.Token)
+
 	fmt.Println("Login user ID:", finishLoginResponse.User.ID)
 	fmt.Println("Login token:", finishLoginResponse.Token)
 
 	fmt.Println()
 
 	fmt.Println("Decrypted master key:", hex.EncodeToString(decryptedMasterKey))
+
+	fmt.Println()
+
+	me, err := userClient.GetMe(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Current username:", me.Username)
+
+	searchResults, err := userClient.Search(ctx, "a")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Search results:", len(*searchResults))
+
+	fmt.Println()
+
+	newDisplayName := "hi"
+	editUserRequest := userClientM.NewEditUserRequest(nil, &newDisplayName, nil)
+
+	editedUser, err := userClient.Edit(ctx, editUserRequest)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Edited user username:", editedUser.User.Username)
+	fmt.Println("Edited user display name:", editedUser.User.DisplayName)
+	fmt.Println("Edited user description:", editedUser.User.Description)
+
+	fmt.Println()
+
+	getUserResponse, err := userClient.Get(ctx, "5FAwMKQUEYzAE4")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("User username:", getUserResponse.Username)
+	fmt.Println("User display name:", getUserResponse.DisplayName)
+	fmt.Println("User description:", getUserResponse.Description)
+
+	fmt.Println()
+
+	userKeysResponse, err := userClient.GetKeys(ctx, "master")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(userKeysResponse)
 }

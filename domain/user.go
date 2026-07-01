@@ -12,3 +12,14 @@ type User struct {
 	EdPublicKey    string    `db:"ed_public_key" json:"ed_public_key"`
 	Date           time.Time `db:"date" json:"date"`
 }
+
+type EditUserRequest struct {
+	Username    *string `json:"username,omitempty"`
+	DisplayName *string `json:"display_name,omitempty"`
+	Description *string `json:"description,omitempty"`
+}
+
+type EditUserResponse struct {
+	Success bool `json:"success"`
+	User    User `json:"user"`
+}

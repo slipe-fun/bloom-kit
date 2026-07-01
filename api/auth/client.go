@@ -8,7 +8,7 @@ type AuthClient struct {
 	client *api.Client
 }
 
-func NewUserClient(client *api.Client) *AuthClient {
+func NewAuthClient(client *api.Client) *AuthClient {
 	return &AuthClient{
 		client: client,
 	}

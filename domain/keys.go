@@ -24,3 +24,8 @@ type IdentityKeysRequest struct {
 	EncryptedSecretKeys EncryptedKey       `json:"encrypted_secret_keys"`
 	IdentityPublicKeys  IdentityPublicKeys `json:"public_keys"`
 }
+
+type GetKeysResponse struct {
+	UserID int `json:"user_id"`
+	EncryptedKey
+}
