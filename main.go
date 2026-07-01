@@ -2,14 +2,10 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 
-	"github.com/cloudflare/circl/sign/ed448"
 	"github.com/slipe-fun/bloom-kit/api"
 	"github.com/slipe-fun/bloom-kit/api/user"
-	"github.com/slipe-fun/bloom-kit/domain"
 	"github.com/slipe-fun/skid-v4/pkg/identity"
 	"github.com/tink-crypto/tink-go/v2/subtle/random"
 )
@@ -21,7 +17,7 @@ func main() {
 
 	ctx := context.Background()
 
-	user, secret, err := identity.GenerateIdentity()
+	userIdentity, secret, err := identity.GenerateIdentity()
 	if err != nil {
 		panic(err)
 	}
@@ -30,17 +26,17 @@ func main() {
 	masterKey := random.GetRandomBytes(32)
 	recoveryKey := random.GetRandomBytes(32)
 
-	encryptedSecretKeys, err := identity.EncryptSecretKeys(user, secret, masterKey)
+	encryptedSecretKeys, err := identity.EncryptSecretKeys(userIdentity, secret, masterKey)
 	if err != nil {
 		panic(err)
 	}
 
-	encryptedMasterKey, err := identity.EncryptMasterKey(masterKey, recoveryKey, user, secret)
+	encryptedMasterKey, err := identity.EncryptMasterKey(masterKey, recoveryKey, userIdentity, secret)
 	if err != nil {
 		panic(err)
 	}
 
-	registerRequestBody := domain.NewKeysRequest(user, encryptedSecretKeys, encryptedMasterKey)
+	registerRequestBody := user.NewKeysRequest(userIdentity, encryptedSecretKeys, encryptedMasterKey)
 
 	registerResponse, err := userClient.Register(ctx, registerRequestBody)
 	if err != nil {
@@ -58,32 +54,25 @@ func main() {
 
 	fmt.Println(beginLoginResponse)
 
-	encryptedMasterKeyBytes, encryptedSecretKeysBytes, challenge, err := domain.DecodeBeginLoginResponse(beginLoginResponse, user)
+	encryptedMasterKeyBytes, encryptedSecretKeysBytes, challenge, err := user.DecodeBeginLoginResponse(beginLoginResponse, userIdentity)
 	if err != nil {
 		panic(err)
 	}
 
-	decryptedMasterKey, err := identity.DecryptMasterKey(encryptedMasterKeyBytes, recoveryKey, user)
+	decryptedMasterKey, err := identity.DecryptMasterKey(encryptedMasterKeyBytes, recoveryKey, userIdentity)
 	if err != nil {
 		panic(err)
 	}
 
-	decryptedSecretKeys, err := identity.DecryptSecretKeys(encryptedSecretKeysBytes, user, decryptedMasterKey)
+	decryptedSecretKeys, err := identity.DecryptSecretKeys(encryptedSecretKeysBytes, userIdentity, decryptedMasterKey)
 	if err != nil {
 		panic(err)
 	}
 	defer decryptedSecretKeys.Wipe()
 
-	message, err := json.Marshal(challenge)
+	finishLoginRequest, err := user.NewFinishLoginRequest(userIdentity, secret, challenge)
 	if err != nil {
 		panic(err)
-	}
-
-	signature := ed448.Sign(decryptedSecretKeys.Ed448, message, "")
-
-	finishLoginRequest := &domain.FinishLoginRequest{
-		UserID:    registerResponse.User.ID,
-		Signature: base64.StdEncoding.EncodeToString(signature),
 	}
 
 	finishLoginResponse, err := userClient.FinishLogin(ctx, finishLoginRequest)
