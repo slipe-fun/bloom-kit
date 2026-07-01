@@ -40,29 +40,9 @@ func main() {
 		panic(err)
 	}
 
-	registerRequestBody := domain.KeysRequest{
-		IdentityKeys: domain.IdentityKeysRequest{
-			EncryptedSecretKeys: domain.EncryptedKey{
-				Ciphertext: base64.StdEncoding.EncodeToString(encryptedSecretKeys.Ciphertext),
-				Nonce:      base64.StdEncoding.EncodeToString(encryptedSecretKeys.Nonce),
-				Salt:       base64.StdEncoding.EncodeToString(encryptedSecretKeys.Salt),
-				Signature:  base64.StdEncoding.EncodeToString(encryptedSecretKeys.Signature),
-			},
-			IdentityPublicKeys: domain.IdentityPublicKeys{
-				MlKemPublicKey: base64.StdEncoding.EncodeToString(user.PublicKeys.MlKem768),
-				EcdhPublicKey:  base64.StdEncoding.EncodeToString(user.PublicKeys.X448),
-				EdPublicKey:    base64.StdEncoding.EncodeToString(user.PublicKeys.Ed448),
-			},
-		},
-		EncryptedMasterKey: domain.EncryptedKey{
-			Ciphertext: base64.StdEncoding.EncodeToString(encryptedMasterKey.Ciphertext),
-			Nonce:      base64.StdEncoding.EncodeToString(encryptedMasterKey.Nonce),
-			Salt:       base64.StdEncoding.EncodeToString(encryptedMasterKey.Salt),
-			Signature:  base64.StdEncoding.EncodeToString(encryptedMasterKey.Signature),
-		},
-	}
+	registerRequestBody := domain.NewKeysRequest(user, encryptedSecretKeys, encryptedMasterKey)
 
-	registerResponse, err := userClient.Register(ctx, &registerRequestBody)
+	registerResponse, err := userClient.Register(ctx, registerRequestBody)
 	if err != nil {
 		panic(err)
 	}
@@ -78,73 +58,23 @@ func main() {
 
 	fmt.Println(beginLoginResponse)
 
-	masterKeyCiphertext, err := base64.StdEncoding.DecodeString(beginLoginResponse.Keys.EncryptedMasterKey.Ciphertext)
+	encryptedMasterKeyBytes, encryptedSecretKeysBytes, challenge, err := domain.DecodeBeginLoginResponse(beginLoginResponse, user)
 	if err != nil {
 		panic(err)
 	}
 
-	masterKeyNonce, err := base64.StdEncoding.DecodeString(beginLoginResponse.Keys.EncryptedMasterKey.Nonce)
+	decryptedMasterKey, err := identity.DecryptMasterKey(encryptedMasterKeyBytes, recoveryKey, user)
 	if err != nil {
 		panic(err)
 	}
 
-	masterKeySalt, err := base64.StdEncoding.DecodeString(beginLoginResponse.Keys.EncryptedMasterKey.Salt)
-	if err != nil {
-		panic(err)
-	}
-
-	masterKeySignature, err := base64.StdEncoding.DecodeString(beginLoginResponse.Keys.EncryptedMasterKey.Signature)
-	if err != nil {
-		panic(err)
-	}
-
-	decryptedMasterKey, err := identity.DecryptMasterKey(&identity.EncryptedMasterKey{
-		Ciphertext: masterKeyCiphertext,
-		Nonce:      masterKeyNonce,
-		Salt:       masterKeySalt,
-		Signature:  masterKeySignature,
-	}, recoveryKey, user)
-	if err != nil {
-		panic(err)
-	}
-
-	secretKeysCiphertext, err := base64.StdEncoding.DecodeString(beginLoginResponse.Keys.IdentityKeys.EncryptedSecretKeys.Ciphertext)
-	if err != nil {
-		panic(err)
-	}
-
-	secretKeysNonce, err := base64.StdEncoding.DecodeString(beginLoginResponse.Keys.IdentityKeys.EncryptedSecretKeys.Nonce)
-	if err != nil {
-		panic(err)
-	}
-
-	secretKeysSalt, err := base64.StdEncoding.DecodeString(beginLoginResponse.Keys.IdentityKeys.EncryptedSecretKeys.Salt)
-	if err != nil {
-		panic(err)
-	}
-
-	secretKeysSignature, err := base64.StdEncoding.DecodeString(beginLoginResponse.Keys.IdentityKeys.EncryptedSecretKeys.Signature)
-	if err != nil {
-		panic(err)
-	}
-
-	decryptedSecretKeys, err := identity.DecryptSecretKeys(&identity.EncryptedSecretKeys{
-		Ciphertext: secretKeysCiphertext,
-		Nonce:      secretKeysNonce,
-		Salt:       secretKeysSalt,
-		Signature:  secretKeysSignature,
-	}, user, decryptedMasterKey)
+	decryptedSecretKeys, err := identity.DecryptSecretKeys(encryptedSecretKeysBytes, user, decryptedMasterKey)
 	if err != nil {
 		panic(err)
 	}
 	defer decryptedSecretKeys.Wipe()
 
-	data := domain.LoginChallenge{
-		Challenge: beginLoginResponse.Challenge,
-		UserID:    registerResponse.User.ID,
-	}
-
-	message, err := json.Marshal(data)
+	message, err := json.Marshal(challenge)
 	if err != nil {
 		panic(err)
 	}
