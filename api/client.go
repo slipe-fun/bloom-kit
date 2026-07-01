@@ -28,7 +28,6 @@ func NewClient(baseURL string) *Client {
 	restyClient := resty.New()
 
 	restyClient.SetBaseURL(baseURL)
-	restyClient.SetDebug(true)
 
 	client := &Client{
 		httpClient: restyClient,

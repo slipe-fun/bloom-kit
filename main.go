@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/slipe-fun/bloom-kit/api"
-	"github.com/slipe-fun/bloom-kit/api/user"
+	authClient "github.com/slipe-fun/bloom-kit/api/auth"
+	authManager "github.com/slipe-fun/bloom-kit/auth"
 	"github.com/slipe-fun/skid-v4/pkg/identity"
 	"github.com/tink-crypto/tink-go/v2/subtle/random"
 )
@@ -13,11 +15,13 @@ import (
 func main() {
 	client := api.NewClient("https://api.bloomapp.pw")
 
-	userClient := user.NewUserClient(client)
+	authClient := authClient.NewUserClient(client)
+
+	authManager := authManager.NewAuthManager(authClient)
 
 	ctx := context.Background()
 
-	userIdentity, secret, err := identity.GenerateIdentity()
+	user, secret, err := identity.GenerateIdentity()
 	if err != nil {
 		panic(err)
 	}
@@ -26,59 +30,34 @@ func main() {
 	masterKey := random.GetRandomBytes(32)
 	recoveryKey := random.GetRandomBytes(32)
 
-	encryptedSecretKeys, err := identity.EncryptSecretKeys(userIdentity, secret, masterKey)
+	registerResponse, err := authManager.Register(ctx, user, secret, masterKey, recoveryKey)
 	if err != nil {
 		panic(err)
 	}
 
-	encryptedMasterKey, err := identity.EncryptMasterKey(masterKey, recoveryKey, userIdentity, secret)
+	fmt.Println("User ID:", registerResponse.User.ID)
+
+	fmt.Println()
+
+	beginLoginResponse, err := authManager.BeginLogin(ctx, registerResponse.User.ID)
 	if err != nil {
 		panic(err)
 	}
 
-	registerRequestBody := user.NewKeysRequest(userIdentity, encryptedSecretKeys, encryptedMasterKey)
+	fmt.Println("Challenge:", beginLoginResponse.Challenge)
 
-	registerResponse, err := userClient.Register(ctx, registerRequestBody)
+	fmt.Println()
+
+	finishLoginResponse, decryptedMasterKey, decryptedSecret, err := authManager.FinishLogin(ctx, beginLoginResponse, user, secret, recoveryKey)
 	if err != nil {
 		panic(err)
 	}
+	defer decryptedSecret.Wipe()
 
-	fmt.Println(registerResponse)
+	fmt.Println("Login user ID:", finishLoginResponse.User.ID)
+	fmt.Println("Login token:", finishLoginResponse.Token)
 
-	fmt.Println(registerResponse.User.ID)
+	fmt.Println()
 
-	beginLoginResponse, err := userClient.BeginLogin(ctx, registerResponse.User.ID)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(beginLoginResponse)
-
-	encryptedMasterKeyBytes, encryptedSecretKeysBytes, challenge, err := user.DecodeBeginLoginResponse(beginLoginResponse, userIdentity)
-	if err != nil {
-		panic(err)
-	}
-
-	decryptedMasterKey, err := identity.DecryptMasterKey(encryptedMasterKeyBytes, recoveryKey, userIdentity)
-	if err != nil {
-		panic(err)
-	}
-
-	decryptedSecretKeys, err := identity.DecryptSecretKeys(encryptedSecretKeysBytes, userIdentity, decryptedMasterKey)
-	if err != nil {
-		panic(err)
-	}
-	defer decryptedSecretKeys.Wipe()
-
-	finishLoginRequest, err := user.NewFinishLoginRequest(userIdentity, secret, challenge)
-	if err != nil {
-		panic(err)
-	}
-
-	finishLoginResponse, err := userClient.FinishLogin(ctx, finishLoginRequest)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(finishLoginResponse)
+	fmt.Println("Decrypted master key:", hex.EncodeToString(decryptedMasterKey))
 }
