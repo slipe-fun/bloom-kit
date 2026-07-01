@@ -7,8 +7,9 @@ import (
 
 	"github.com/slipe-fun/bloom-kit/api"
 	authClient "github.com/slipe-fun/bloom-kit/api/auth"
-	userClientM "github.com/slipe-fun/bloom-kit/api/user"
+	userClient "github.com/slipe-fun/bloom-kit/api/user"
 	authManager "github.com/slipe-fun/bloom-kit/auth"
+	userManager "github.com/slipe-fun/bloom-kit/user"
 	"github.com/slipe-fun/skid-v4/pkg/identity"
 	"github.com/tink-crypto/tink-go/v2/subtle/random"
 )
@@ -17,9 +18,10 @@ func main() {
 	client := api.NewClient("https://api.bloomapp.pw")
 
 	authClient := authClient.NewAuthClient(client)
-	userClient := userClientM.NewUserClient(client)
+	userClient := userClient.NewUserClient(client)
 
 	authManager := authManager.NewAuthManager(authClient)
+	userManager := userManager.NewUserManager(userClient)
 
 	ctx := context.Background()
 
@@ -86,9 +88,7 @@ func main() {
 	fmt.Println()
 
 	newDisplayName := "hi"
-	editUserRequest := userClientM.NewEditUserRequest(nil, &newDisplayName, nil)
-
-	editedUser, err := userClient.Edit(ctx, editUserRequest)
+	editedUser, err := userManager.Edit(ctx, nil, &newDisplayName, nil)
 	if err != nil {
 		panic(err)
 	}
