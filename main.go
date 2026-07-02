@@ -8,8 +8,8 @@ import (
 	"github.com/slipe-fun/bloom-kit/api"
 	authClient "github.com/slipe-fun/bloom-kit/api/auth"
 	userClient "github.com/slipe-fun/bloom-kit/api/user"
-	authManager "github.com/slipe-fun/bloom-kit/auth"
-	userManager "github.com/slipe-fun/bloom-kit/user"
+	authManager "github.com/slipe-fun/bloom-kit/managers/auth"
+	userManager "github.com/slipe-fun/bloom-kit/managers/user"
 	"github.com/slipe-fun/skid-v4/pkg/identity"
 	"github.com/tink-crypto/tink-go/v2/subtle/random"
 )
