@@ -16,7 +16,6 @@ func (a *AuthManager) FinishLogin(
 	ctx context.Context,
 	beginLoginResponse *domain.BeginLoginResponse,
 	user *identity.User,
-	secretKeys *identity.SecretKeys,
 	recoveryKey []byte,
 ) (*domain.RegisterResponse, []byte, *identity.SecretKeys, error) {
 	encryptedMasterKeyBytes, encryptedSecretKeysBytes, challenge, err := auth.DecodeBeginLoginResponse(beginLoginResponse, user)
@@ -35,7 +34,7 @@ func (a *AuthManager) FinishLogin(
 	}
 	defer decryptedSecretKeys.Wipe()
 
-	finishLoginRequest, err := auth.NewFinishLoginRequest(user, secretKeys, challenge)
+	finishLoginRequest, err := auth.NewFinishLoginRequest(user, decryptedSecretKeys, challenge)
 	if err != nil {
 		return nil, nil, nil, err
 	}
