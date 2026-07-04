@@ -17,9 +17,8 @@ type RegisterResult struct {
 }
 
 type LoginResult struct {
-	Token     string
-	UserJSON  []byte
-	MasterKey string
+	Token    string
+	UserJSON []byte
 }
 
 func (c *BloomClient) Register() (*RegisterResult, error) {
@@ -37,7 +36,29 @@ func (c *BloomClient) Register() (*RegisterResult, error) {
 		panic(err)
 	}
 
+	mappedSecretKeys, err := mapSecretKeys(secret)
+	if err != nil {
+		return nil, err
+	}
+
 	userBytes, err := json.Marshal(registerResponse.User)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.saveCredentials(&SavedCredentials{
+		UserID:      registerResponse.User.ID,
+		RecoveryKey: base64.StdEncoding.EncodeToString(recoveryKey),
+		MasterKey:   base64.StdEncoding.EncodeToString(masterKey),
+		PublicKeys: *mapPublicKeys(
+			userIdentity.PublicKeys.MlKem768,
+			userIdentity.PublicKeys.X448,
+			userIdentity.PublicKeys.Ed448,
+		),
+		SecretKeys: *mappedSecretKeys,
+		UserJSON:   userBytes,
+		Token:      registerResponse.Token,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -97,11 +118,46 @@ func (c *BloomClient) Login(userID, recoveryKey string) (*LoginResult, error) {
 		return nil, err
 	}
 
+	mappedSecretKeys, err := mapSecretKeys(secretKeys)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.saveCredentials(&SavedCredentials{
+		UserID:      finishLoginResult.User.ID,
+		RecoveryKey: recoveryKey,
+		MasterKey:   base64.StdEncoding.EncodeToString(masterKey),
+		PublicKeys: *mapPublicKeys(
+			userIdentity.PublicKeys.MlKem768,
+			userIdentity.PublicKeys.X448,
+			userIdentity.PublicKeys.Ed448,
+		),
+		SecretKeys: *mappedSecretKeys,
+		UserJSON:   userBytes,
+		Token:      finishLoginResult.Token,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	c.apiClient.SetToken(finishLoginResult.Token)
 
 	return &LoginResult{
-		Token:     finishLoginResult.Token,
-		UserJSON:  userBytes,
-		MasterKey: hex.EncodeToString(masterKey),
+		Token:    finishLoginResult.Token,
+		UserJSON: userBytes,
+	}, nil
+}
+
+func (c *BloomClient) RestoreSession() (*LoginResult, error) {
+	creds, err := c.loadCredentials()
+	if err != nil {
+		return nil, err
+	}
+
+	c.apiClient.SetToken(creds.Token)
+
+	return &LoginResult{
+		Token:    creds.Token,
+		UserJSON: creds.UserJSON,
 	}, nil
 }

@@ -9,21 +9,28 @@ import (
 )
 
 type BloomClient struct {
-	apiClient   *api.Client
-	authManager *authManager.AuthManager
-	userManager *userManager.UserManager
+	apiClient     *api.Client
+	authManager   *authManager.AuthManager
+	userManager   *userManager.UserManager
+	storagePath   string
+	encryptionKey []byte
 }
 
-func NewClient(baseURL string) *BloomClient {
+func NewClient(baseURL, storagePath string, encryptionKey []byte) *BloomClient {
 	c := api.NewClient(baseURL)
 
 	ac := authClient.NewAuthClient(c)
 	uc := userClient.NewUserClient(c)
 
+	localKey := make([]byte, len(encryptionKey))
+	copy(localKey, encryptionKey)
+
 	return &BloomClient{
-		apiClient:   c,
-		authManager: authManager.NewAuthManager(ac),
-		userManager: userManager.NewUserManager(uc),
+		apiClient:     c,
+		authManager:   authManager.NewAuthManager(ac),
+		userManager:   userManager.NewUserManager(uc),
+		storagePath:   storagePath,
+		encryptionKey: localKey,
 	}
 }
 
