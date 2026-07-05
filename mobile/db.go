@@ -17,7 +17,7 @@ type Database struct {
 	db *sqlite.DB
 }
 
-func (c *BloomClient) NewDatabase() (*Database, error) {
+func (c *BloomClient) newDatabase() (*Database, error) {
 	if len(c.encryptionKey) != 32 {
 		return nil, fmt.Errorf("invalid encryption key")
 	}
@@ -55,13 +55,13 @@ func (c *BloomClient) NewDatabase() (*Database, error) {
 	return &Database{db: db}, nil
 }
 
-func (d *Database) CloseDatabase() {
+func (d *Database) closeDatabase() {
 	if d.db != nil {
 		_ = d.db.Close()
 	}
 }
 
-func (d *Database) SaveChat(chat domain.Chat, chatKey, syncKey []byte) error {
+func (d *Database) saveChat(chat domain.Chat, chatKey, syncKey []byte) error {
 	membersJSON, err := json.Marshal(chat.Members)
 	if err != nil {
 		return err
@@ -86,7 +86,7 @@ func (d *Database) SaveChat(chat domain.Chat, chatKey, syncKey []byte) error {
 	return nil
 }
 
-func (d *Database) GetChat(chatID int) (*domain.Chat, []byte, []byte, error) {
+func (d *Database) getChat(chatID int) (*domain.ChatWithKeys, error) {
 	row := d.db.QueryRow(`
 		SELECT id, members, handshake, chat_key, sync_key
 		FROM chats
@@ -94,38 +94,105 @@ func (d *Database) GetChat(chatID int) (*domain.Chat, []byte, []byte, error) {
 	`, chatID)
 
 	var (
-		chat           domain.Chat
+		chat           domain.RawChat
 		membersJSON    string
 		handshakeJSON  string
 		encodedChatKey string
 		encodedSyncKey string
 	)
 
-	err := row.Scan(&chat.RawChat.ID, &membersJSON, &handshakeJSON, &encodedChatKey, &encodedSyncKey)
+	err := row.Scan(&chat.ID, &membersJSON, &handshakeJSON, &encodedChatKey, &encodedSyncKey)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil, nil, err
+			return nil, err
 		}
-		return nil, nil, nil, err
+		return nil, err
 	}
 
-	if err := json.Unmarshal([]byte(membersJSON), &chat.RawChat.Members); err != nil {
-		return nil, nil, nil, err
+	if err := json.Unmarshal([]byte(membersJSON), &chat.Members); err != nil {
+		return nil, err
 	}
 
-	if err := json.Unmarshal([]byte(handshakeJSON), &chat.RawChat.Handshake); err != nil {
-		return nil, nil, nil, err
+	if err := json.Unmarshal([]byte(handshakeJSON), &chat.Handshake); err != nil {
+		return nil, err
 	}
 
 	chatKeyBytes, err := base64.StdEncoding.DecodeString(encodedChatKey)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	syncKeyBytes, err := base64.StdEncoding.DecodeString(encodedSyncKey)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
-	return &chat, chatKeyBytes, syncKeyBytes, nil
+	return &domain.ChatWithKeys{
+		RawChat: chat,
+		ChatKey: chatKeyBytes,
+		SyncKey: syncKeyBytes,
+	}, nil
+}
+
+func (d *Database) getChats() ([]domain.ChatWithKeys, error) {
+	rows, err := d.db.Query(`
+		SELECT id, members, handshake, chat_key, sync_key
+		FROM chats
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var chats []domain.ChatWithKeys
+
+	for rows.Next() {
+		var (
+			chat           domain.RawChat
+			membersJSON    string
+			handshakeJSON  string
+			encodedChatKey string
+			encodedSyncKey string
+		)
+
+		if err := rows.Scan(
+			&chat.ID,
+			&membersJSON,
+			&handshakeJSON,
+			&encodedChatKey,
+			&encodedSyncKey,
+		); err != nil {
+			return nil, err
+		}
+
+		if err := json.Unmarshal([]byte(membersJSON), &chat.Members); err != nil {
+			return nil, err
+		}
+
+		if err := json.Unmarshal([]byte(handshakeJSON), &chat.Handshake); err != nil {
+			return nil, err
+		}
+
+		chatKeyBytes, err := base64.StdEncoding.DecodeString(encodedChatKey)
+		if err != nil {
+			return nil, err
+		}
+
+		syncKeyBytes, err := base64.StdEncoding.DecodeString(encodedSyncKey)
+		if err != nil {
+			return nil, err
+		}
+
+		chats = append(chats, domain.ChatWithKeys{
+			RawChat: chat,
+			ChatKey: chatKeyBytes,
+			SyncKey: syncKeyBytes,
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return chats, nil
 }

@@ -1,6 +1,10 @@
 package mobile
 
 import (
+	"errors"
+	"fmt"
+	"os"
+
 	"github.com/slipe-fun/bloom-kit/api"
 	authClient "github.com/slipe-fun/bloom-kit/api/auth"
 	chatClient "github.com/slipe-fun/bloom-kit/api/chat"
@@ -15,6 +19,7 @@ type BloomClient struct {
 	authManager   *authManager.AuthManager
 	userManager   *userManager.UserManager
 	chatManager   *chatManager.ChatManager
+	credentials   *SavedCredentials
 	database      *Database
 	storagePath   string
 	encryptionKey []byte
@@ -41,11 +46,18 @@ func NewClient(baseURL, storagePath string, encryptionKey []byte) *BloomClient {
 }
 
 func (c *BloomClient) Initialize() error {
-	db, err := c.NewDatabase()
+	db, err := c.newDatabase()
 	if err != nil {
 		return err
 	}
 	c.database = db
+	_, err = c.loadCredentials()
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("failed to load credentials: %w", err)
+	}
 	return nil
 }
 

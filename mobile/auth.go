@@ -48,8 +48,8 @@ func (c *BloomClient) Register() (*RegisterResult, error) {
 
 	err = c.saveCredentials(&SavedCredentials{
 		UserID:      registerResponse.User.ID,
-		RecoveryKey: base64.StdEncoding.EncodeToString(recoveryKey),
-		MasterKey:   base64.StdEncoding.EncodeToString(masterKey),
+		RecoveryKey: recoveryKey,
+		MasterKey:   masterKey,
 		PublicKeys: *mapPublicKeys(
 			userIdentity.PublicKeys.MlKem768,
 			userIdentity.PublicKeys.X448,
@@ -125,8 +125,8 @@ func (c *BloomClient) Login(userID, recoveryKey string) (*LoginResult, error) {
 
 	err = c.saveCredentials(&SavedCredentials{
 		UserID:      finishLoginResult.User.ID,
-		RecoveryKey: recoveryKey,
-		MasterKey:   base64.StdEncoding.EncodeToString(masterKey),
+		RecoveryKey: recoveryKeyBytes,
+		MasterKey:   masterKey,
 		PublicKeys: *mapPublicKeys(
 			userIdentity.PublicKeys.MlKem768,
 			userIdentity.PublicKeys.X448,

@@ -66,7 +66,7 @@ func (c *BloomClient) CreateChat(receiverUser *CreateChatRequest) ([]byte, error
 		return nil, err
 	}
 
-	err = c.database.SaveChat(*createdChat, chatKey, syncKey)
+	err = c.database.saveChat(*createdChat, chatKey, syncKey)
 	if err != nil {
 		return nil, err
 	}
@@ -92,4 +92,42 @@ func (c *BloomClient) CreateChat(receiverUser *CreateChatRequest) ([]byte, error
 	}
 
 	return json.Marshal(response)
+}
+
+func (c *BloomClient) GetLocalChats() ([]byte, error) {
+	chats, err := c.database.getChats()
+	if err != nil {
+		return nil, err
+	}
+
+	var result []ChatResponse
+
+	for _, chat := range chats {
+		newChatObject := ChatResponse{
+			Chat: domain.Chat{
+				RawChat: domain.RawChat{
+					ID:        chat.ID,
+					Members:   chat.Members,
+					Handshake: chat.Handshake,
+				},
+			},
+		}
+
+		newChatObject.Me = c.credentials.UserJSON
+
+		for _, member := range chat.Members {
+			if member.ID != c.credentials.UserID {
+				userBytes, err := json.Marshal(member)
+				if err != nil {
+					return nil, err
+				}
+				newChatObject.Recipient = userBytes
+				break
+			}
+		}
+
+		result = append(result, newChatObject)
+	}
+
+	return json.Marshal(result)
 }

@@ -23,6 +23,14 @@ type Chat struct {
 	LastReadMessage *Message `json:"last_read_message,omitempty"`
 }
 
+type ChatWithKeys struct {
+	RawChat
+	ChatKey         []byte
+	SyncKey         []byte
+	LastMessage     *Message `json:"last_message,omitempty"`
+	LastReadMessage *Message `json:"last_read_message,omitempty"`
+}
+
 type CreateChatRequest struct {
 	Recipient string    `json:"recipient"`
 	Handshake Handshake `json:"handshake"`

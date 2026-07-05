@@ -19,10 +19,10 @@ type PublicKeys struct {
 
 type SavedCredentials struct {
 	UserID      string `json:"user_id"`
-	RecoveryKey string `json:"recovery_key"`
-	MasterKey   string `json:"master_key"`
+	RecoveryKey []byte `json:"recovery_key"`
+	MasterKey   []byte `json:"master_key"`
 	PublicKeys
-	SecretKeys string `json:"secret_keys"`
+	SecretKeys []byte `json:"secret_keys"`
 	UserJSON   []byte `json:"user_json"`
 	Token      string `json:"token"`
 }
@@ -35,24 +35,17 @@ func mapPublicKeys(mlKem768, x448, ed448 []byte) *PublicKeys {
 	}
 }
 
-func mapSecretKeys(secretKeys *identity.SecretKeys) (*string, error) {
+func mapSecretKeys(secretKeys *identity.SecretKeys) (*[]byte, error) {
 	packSecretKeys, err := secretKeys.Pack()
 	if err != nil {
 		return nil, err
 	}
 
-	encodedSecretKeys := base64.StdEncoding.EncodeToString(packSecretKeys)
-
-	return &encodedSecretKeys, nil
+	return &packSecretKeys, nil
 }
 
-func unmapSecretKeys(mappedSecretKeys string) (*identity.SecretKeys, error) {
-	mappedSecretKeysBytes, err := base64.StdEncoding.DecodeString(mappedSecretKeys)
-	if err != nil {
-		return nil, err
-	}
-
-	return identity.Unpack(mappedSecretKeysBytes)
+func unmapSecretKeys(mappedSecretKeys []byte) (*identity.SecretKeys, error) {
+	return identity.Unpack(mappedSecretKeys)
 }
 
 func unmapPublicKeys(publicKeys *PublicKeys) (*identity.PublicKeys, error) {
@@ -83,6 +76,7 @@ func (c *BloomClient) saveCredentials(creds *SavedCredentials) error {
 	if err != nil {
 		return err
 	}
+	defer crypto.Zero(plainText)
 
 	if len(c.encryptionKey) != 32 {
 		return errors.New("invalid encryption key")
@@ -94,7 +88,18 @@ func (c *BloomClient) saveCredentials(creds *SavedCredentials) error {
 	}
 
 	filePath := filepath.Join(c.storagePath, "session.dat")
-	return os.WriteFile(filePath, ciphertext, 0600)
+	err = os.WriteFile(filePath, ciphertext, 0600)
+	if err != nil {
+		return err
+	}
+
+	crypto.Zero(creds.RecoveryKey)
+	crypto.Zero(creds.MasterKey)
+	crypto.Zero(creds.SecretKeys)
+
+	c.credentials = creds
+
+	return nil
 }
 
 func (c *BloomClient) loadCredentials() (*SavedCredentials, error) {
@@ -113,11 +118,23 @@ func (c *BloomClient) loadCredentials() (*SavedCredentials, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer crypto.Zero(plainText)
 
 	var creds SavedCredentials
 	err = json.Unmarshal(plainText, &creds)
 	if err != nil {
 		return nil, err
+	}
+
+	c.credentials = &SavedCredentials{
+		UserID: creds.UserID,
+		PublicKeys: PublicKeys{
+			MlKem768: creds.PublicKeys.MlKem768,
+			X448:     creds.PublicKeys.X448,
+			Ed448:    creds.PublicKeys.Ed448,
+		},
+		UserJSON: creds.UserJSON,
+		Token:    creds.Token,
 	}
 
 	return &creds, nil
@@ -127,6 +144,8 @@ func (c *BloomClient) ClearCredentials() {
 	filePath := filepath.Join(c.storagePath, "session.dat")
 
 	_ = os.Remove(filePath)
+
+	c.credentials = nil
 
 	c.apiClient.SetToken("")
 }
