@@ -146,7 +146,7 @@ func (d *Database) GetChats() ([]domain.ChatWithKeys, error) {
 	return chats, nil
 }
 
-func (d *Database) EditChatMembers(chatID int, newMembers []User) error {
+func (d *Database) EditChatMembers(chatID int, newMembers []domain.User) error {
 	membersJSON, err := json.Marshal(newMembers)
 	if err != nil {
 		return err
