@@ -9,6 +9,7 @@ import (
 	authClient "github.com/slipe-fun/bloom-kit/api/auth"
 	chatClient "github.com/slipe-fun/bloom-kit/api/chat"
 	userClient "github.com/slipe-fun/bloom-kit/api/user"
+	"github.com/slipe-fun/bloom-kit/database"
 	authManager "github.com/slipe-fun/bloom-kit/managers/auth"
 	chatManager "github.com/slipe-fun/bloom-kit/managers/chat"
 	userManager "github.com/slipe-fun/bloom-kit/managers/user"
@@ -20,7 +21,7 @@ type BloomClient struct {
 	userManager   *userManager.UserManager
 	chatManager   *chatManager.ChatManager
 	credentials   *SavedCredentials
-	database      *Database
+	database      *database.Database
 	storagePath   string
 	encryptionKey []byte
 }
@@ -46,7 +47,7 @@ func NewClient(baseURL, storagePath string, encryptionKey []byte) *BloomClient {
 }
 
 func (c *BloomClient) Initialize() error {
-	db, err := c.newDatabase()
+	db, err := database.NewDatabase(c.encryptionKey, c.storagePath)
 	if err != nil {
 		return err
 	}

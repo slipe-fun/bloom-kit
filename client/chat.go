@@ -66,7 +66,7 @@ func (c *BloomClient) CreateChat(receiverUser *CreateChatRequest) ([]byte, error
 		return nil, err
 	}
 
-	err = c.database.saveChat(*createdChat, chatKey, syncKey)
+	err = c.database.SaveChat(*createdChat, chatKey, syncKey)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (c *BloomClient) CreateChat(receiverUser *CreateChatRequest) ([]byte, error
 }
 
 func (c *BloomClient) GetLocalChats() ([]byte, error) {
-	chats, err := c.database.getChats()
+	chats, err := c.database.GetChats()
 	if err != nil {
 		return nil, err
 	}

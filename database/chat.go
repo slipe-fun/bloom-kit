@@ -1,67 +1,15 @@
-package mobile
+package database
 
 import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"path/filepath"
 
 	"github.com/slipe-fun/bloom-kit/domain"
-	sqlite "gosqlite.org"
-	"gosqlite.org/vfs/crypto"
 )
 
-type Database struct {
-	db *sqlite.DB
-}
-
-func (c *BloomClient) newDatabase() (*Database, error) {
-	if len(c.encryptionKey) != 32 {
-		return nil, fmt.Errorf("invalid encryption key")
-	}
-
-	dbPath := filepath.Join(c.storagePath, "bloom.db")
-
-	db, err := crypto.Open(
-		sqlite.Config{
-			Path:    dbPath,
-			Pragmas: sqlite.RecommendedPragmas(),
-		},
-		crypto.Options{
-			Key: c.encryptionKey,
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open encrypted database: %w", err)
-	}
-
-	schema := `
-	CREATE TABLE IF NOT EXISTS chats (
-	    id INTEGER PRIMARY KEY,
-	    members TEXT NOT NULL,
-	    handshake TEXT NOT NULL,
-	    chat_key TEXT NOT NULL,
-	    sync_key TEXT NOT NULL
-	);
-	`
-
-	if _, err := db.Exec(schema); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("failed to create schema: %w", err)
-	}
-
-	return &Database{db: db}, nil
-}
-
-func (d *Database) closeDatabase() {
-	if d.db != nil {
-		_ = d.db.Close()
-	}
-}
-
-func (d *Database) saveChat(chat domain.Chat, chatKey, syncKey []byte) error {
+func (d *Database) SaveChat(chat domain.Chat, chatKey, syncKey []byte) error {
 	membersJSON, err := json.Marshal(chat.Members)
 	if err != nil {
 		return err
@@ -86,7 +34,7 @@ func (d *Database) saveChat(chat domain.Chat, chatKey, syncKey []byte) error {
 	return nil
 }
 
-func (d *Database) getChat(chatID int) (*domain.ChatWithKeys, error) {
+func (d *Database) GetChat(chatID int) (*domain.ChatWithKeys, error) {
 	row := d.db.QueryRow(`
 		SELECT id, members, handshake, chat_key, sync_key
 		FROM chats
@@ -134,7 +82,7 @@ func (d *Database) getChat(chatID int) (*domain.ChatWithKeys, error) {
 	}, nil
 }
 
-func (d *Database) getChats() ([]domain.ChatWithKeys, error) {
+func (d *Database) GetChats() ([]domain.ChatWithKeys, error) {
 	rows, err := d.db.Query(`
 		SELECT id, members, handshake, chat_key, sync_key
 		FROM chats
