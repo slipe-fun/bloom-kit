@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/slipe-fun/bloom-kit/domain"
 )
@@ -143,4 +144,27 @@ func (d *Database) GetChats() ([]domain.ChatWithKeys, error) {
 	}
 
 	return chats, nil
+}
+
+func (d *Database) EditChatMembers(chatID int, newMembers []User) error {
+	membersJSON, err := json.Marshal(newMembers)
+	if err != nil {
+		return err
+	}
+
+	query := `UPDATE chats SET members = ? WHERE id = ?;`
+	result, err := d.db.Exec(query, string(membersJSON), chatID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("chat with ID %d not found", chatID)
+	}
+
+	return nil
 }
