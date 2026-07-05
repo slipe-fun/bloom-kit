@@ -10,13 +10,17 @@ import (
 func NewCreateChatRequest(recipientID string, handshake *identity.HandshakePayload) *domain.CreateChatRequest {
 	return &domain.CreateChatRequest{
 		Recipient: recipientID,
-		Handshake: domain.Handshake{
-			ReceiverCipherText:  base64.StdEncoding.EncodeToString(handshake.ReceiverCiphertext),
-			SenderEphemeralX448: base64.StdEncoding.EncodeToString(handshake.SenderEphemeralX448),
-			EncryptedSyncKey: domain.EncryptedSyncKey{
-				CipherText: base64.StdEncoding.EncodeToString(handshake.EncryptedSyncKey.Ciphertext),
-				Nonce:      base64.StdEncoding.EncodeToString(handshake.EncryptedSyncKey.Nonce),
-			},
+		Handshake: *MapHandshake(handshake),
+	}
+}
+
+func MapHandshake(handshake *identity.HandshakePayload) *domain.Handshake {
+	return &domain.Handshake{
+		ReceiverCipherText:  base64.StdEncoding.EncodeToString(handshake.ReceiverCiphertext),
+		SenderEphemeralX448: base64.StdEncoding.EncodeToString(handshake.SenderEphemeralX448),
+		EncryptedSyncKey: domain.EncryptedSyncKey{
+			CipherText: base64.StdEncoding.EncodeToString(handshake.EncryptedSyncKey.Ciphertext),
+			Nonce:      base64.StdEncoding.EncodeToString(handshake.EncryptedSyncKey.Nonce),
 		},
 	}
 }

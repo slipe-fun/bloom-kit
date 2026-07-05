@@ -15,6 +15,7 @@ type BloomClient struct {
 	authManager   *authManager.AuthManager
 	userManager   *userManager.UserManager
 	chatManager   *chatManager.ChatManager
+	database      *Database
 	storagePath   string
 	encryptionKey []byte
 }
@@ -37,6 +38,15 @@ func NewClient(baseURL, storagePath string, encryptionKey []byte) *BloomClient {
 		storagePath:   storagePath,
 		encryptionKey: localKey,
 	}
+}
+
+func (c *BloomClient) Initialize() error {
+	db, err := c.NewDatabase()
+	if err != nil {
+		return err
+	}
+	c.database = db
+	return nil
 }
 
 func (c *BloomClient) SetToken(token string) {

@@ -14,15 +14,13 @@ type Handshake struct {
 type RawChat struct {
 	ID        int        `json:"id"`
 	Members   []User     `json:"members"`
-	Handshake *Handshake `json:"handshake,omitempty"`
+	Handshake *Handshake `json:"handshake"`
 }
 
 type Chat struct {
-	ID              int        `json:"id"`
-	Members         []User     `json:"members"`
-	Handshake       *Handshake `json:"handshake,omitempty"`
-	LastMessage     *Message   `json:"last_message,omitempty"`
-	LastReadMessage *Message   `json:"last_read_message,omitempty"`
+	RawChat
+	LastMessage     *Message `json:"last_message,omitempty"`
+	LastReadMessage *Message `json:"last_read_message,omitempty"`
 }
 
 type CreateChatRequest struct {

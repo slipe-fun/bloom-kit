@@ -61,14 +61,15 @@ func (c *BloomClient) CreateChat(receiverUser *CreateChatRequest) ([]byte, error
 		},
 	}
 
-	createdChat, handshake, chatKey, syncKey, err := c.chatManager.Create(context.Background(), &sender, &receiver, secretKeys)
+	createdChat, chatKey, syncKey, err := c.chatManager.Create(context.Background(), &sender, &receiver, secretKeys)
 	if err != nil {
 		return nil, err
 	}
 
-	_ = handshake
-	_ = chatKey
-	_ = syncKey
+	err = c.database.SaveChat(*createdChat, chatKey, syncKey)
+	if err != nil {
+		return nil, err
+	}
 
 	me := creds.UserJSON
 
