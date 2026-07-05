@@ -21,7 +21,7 @@ type ChatResponse struct {
 	Recipient json.RawMessage `json:"recipient"`
 }
 
-func (c *BloomClient) CreateChat(receiverUser CreateChatRequest) ([]byte, error) {
+func (c *BloomClient) CreateChat(receiverUser *CreateChatRequest) ([]byte, error) {
 	creds, err := c.loadCredentials()
 	if err != nil {
 		return nil, err

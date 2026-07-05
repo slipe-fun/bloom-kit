@@ -12,10 +12,10 @@ func NewCreateChatRequest(recipientID string, handshake *identity.HandshakePaylo
 		Recipient: recipientID,
 		Handshake: domain.Handshake{
 			ReceiverCipherText:  base64.StdEncoding.EncodeToString(handshake.ReceiverCiphertext),
-			SenderEphemeralX448: base64.RawStdEncoding.EncodeToString(handshake.SenderEphemeralX448),
+			SenderEphemeralX448: base64.StdEncoding.EncodeToString(handshake.SenderEphemeralX448),
 			EncryptedSyncKey: domain.EncryptedSyncKey{
-				CipherText: base64.RawStdEncoding.EncodeToString(handshake.EncryptedSyncKey.Ciphertext),
-				Nonce:      base64.RawStdEncoding.EncodeToString(handshake.EncryptedSyncKey.Nonce),
+				CipherText: base64.StdEncoding.EncodeToString(handshake.EncryptedSyncKey.Ciphertext),
+				Nonce:      base64.StdEncoding.EncodeToString(handshake.EncryptedSyncKey.Nonce),
 			},
 		},
 	}

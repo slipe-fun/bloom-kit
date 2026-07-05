@@ -14,16 +14,16 @@ func (c *ChatManager) Create(
 	receiver *identity.User,
 	secretKeys *identity.SecretKeys,
 ) (*domain.Chat, *identity.HandshakePayload, []byte, []byte, error) {
-	hanshake, chatKey, syncKey, err := identity.InitiateKeyExchange(sender, secretKeys, receiver)
+	handshake, chatKey, syncKey, err := identity.InitiateKeyExchange(sender, secretKeys, receiver)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	createChatRequest := chat.NewCreateChatRequest(receiver.ID, hanshake)
+	createChatRequest := chat.NewCreateChatRequest(receiver.ID, handshake)
 	createChatResponse, err := c.chatClient.Create(ctx, createChatRequest)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	return createChatResponse, hanshake, chatKey, syncKey, nil
+	return createChatResponse, handshake, chatKey, syncKey, nil
 }
