@@ -45,10 +45,6 @@ func Encrypt(key, plaintext, aad []byte) ([]byte, error) {
 		return nil, errors.New("failed to encrypt: output too short")
 	}
 
-	defer func() {
-		Zero(fullResult)
-	}()
-
 	return fullResult, nil
 }
 

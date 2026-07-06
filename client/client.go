@@ -47,7 +47,9 @@ func NewClient(baseURL, storagePath string, encryptionKey []byte) *BloomClient {
 }
 
 func (c *BloomClient) Initialize() error {
-	db, err := database.NewDatabase(c.encryptionKey, c.storagePath)
+	dbKey := make([]byte, len(c.encryptionKey))
+	copy(dbKey, c.encryptionKey)
+	db, err := database.NewDatabase(dbKey, c.storagePath)
 	if err != nil {
 		return err
 	}

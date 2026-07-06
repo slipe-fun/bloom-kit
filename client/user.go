@@ -3,6 +3,8 @@ package client
 import (
 	"context"
 	"encoding/json"
+
+	"github.com/slipe-fun/bloom-kit/domain"
 )
 
 type EditRequest struct {
@@ -41,7 +43,7 @@ func (c *BloomClient) SearchUsers(query string) ([]byte, error) {
 		return nil, err
 	}
 
-	err = c.database.SaveUsers(users)
+	err = c.database.SaveUsers(*users)
 	if err != nil {
 		return nil, err
 	}
@@ -105,4 +107,24 @@ func (c *BloomClient) GetUser(userID string) ([]byte, error) {
 	}
 
 	return userBytes, nil
+}
+
+func (c *BloomClient) getOrFetchUser(userID string) (*domain.User, error) {
+	user, err := c.database.GetUser(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if user == nil {
+		user, err = c.userManager.Get(context.Background(), userID)
+		if err != nil {
+			return nil, err
+		}
+		err = c.database.SaveUser(user)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return user, nil
 }

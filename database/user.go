@@ -1,6 +1,9 @@
 package database
 
 import (
+	"database/sql"
+	"errors"
+
 	"github.com/slipe-fun/bloom-kit/domain"
 )
 
@@ -24,7 +27,7 @@ func (d *Database) SaveUser(user *domain.User) error {
 	return nil
 }
 
-func (d *Database) SaveUsers(users *[]domain.User) error {
+func (d *Database) SaveUsers(users []domain.User) error {
 	tx, err := d.db.Begin()
 	if err != nil {
 		return err
@@ -32,16 +35,7 @@ func (d *Database) SaveUsers(users *[]domain.User) error {
 	defer tx.Rollback()
 
 	stmt, err := tx.Prepare(`
-		INSERT INTO users (
-			id,
-			username,
-			display_name,
-			description,
-			ml_kem_public_key,
-			ecdh_public_key,
-			ed_public_key,
-			date
-		)
+		INSERT INTO users (id, username, display_name, description, ml_kem_public_key, ecdh_public_key, ed_public_key, date)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			username = excluded.username,
@@ -57,7 +51,7 @@ func (d *Database) SaveUsers(users *[]domain.User) error {
 	}
 	defer stmt.Close()
 
-	for _, user := range *users {
+	for _, user := range users {
 		_, err := stmt.Exec(
 			user.ID,
 			user.Username,
@@ -74,4 +68,25 @@ func (d *Database) SaveUsers(users *[]domain.User) error {
 	}
 
 	return tx.Commit()
+}
+
+func (d *Database) GetUser(userID string) (*domain.User, error) {
+	row := d.db.QueryRow(`
+		SELECT id, username, display_name, description, ml_kem_public_key, ecdh_public_key, ed_public_key, date
+		FROM users
+		WHERE id = ?
+	`, userID)
+
+	var user domain.User
+
+	err := row.Scan(&user.ID, &user.Username, &user.DisplayName, &user.Description, &user.MlKemPublicKey, &user.EcdhPublicKey, &user.EdPublicKey, &user.Date)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
+		return nil, err
+	}
+
+	return &user, nil
 }

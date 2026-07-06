@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/slipe-fun/bloom-kit/domain"
 )
@@ -33,6 +34,62 @@ func (d *Database) SaveChat(chat domain.Chat, chatKey, syncKey []byte) error {
 	}
 
 	return nil
+}
+
+func (d *Database) SaveChats(chats []domain.ChatWithKeys) error {
+	tx, err := d.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare(`
+		INSERT INTO chats (
+			id,
+			members,
+			handshake,
+			chat_key,
+			sync_key
+		)
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET
+			members = excluded.members,
+			handshake = excluded.handshake,
+			chat_key = excluded.chat_key,
+			sync_key = excluded.sync_key;
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, chat := range chats {
+		membersJSON, err := json.Marshal(chat.Members)
+		if err != nil {
+			return err
+		}
+
+		handshakeJSON, err := json.Marshal(chat.Handshake)
+		if err != nil {
+			return err
+		}
+
+		encodedChatKey := base64.StdEncoding.EncodeToString(chat.ChatKey)
+		encodedSyncKey := base64.StdEncoding.EncodeToString(chat.SyncKey)
+
+		_, err = stmt.Exec(
+			chat.ID,
+			string(membersJSON),
+			string(handshakeJSON),
+			encodedChatKey,
+			encodedSyncKey,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
 }
 
 func (d *Database) GetChat(chatID int) (*domain.ChatWithKeys, error) {
@@ -167,4 +224,53 @@ func (d *Database) EditChatMembers(chatID int, newMembers []domain.User) error {
 	}
 
 	return nil
+}
+
+func (d *Database) GetMissingChatIDs(chatIDs []int) ([]int, error) {
+	if len(chatIDs) == 0 {
+		return nil, nil
+	}
+
+	placeholders := make([]string, len(chatIDs))
+	args := make([]any, len(chatIDs))
+
+	for i, id := range chatIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id
+		FROM chats
+		WHERE id IN (%s)
+	`, strings.Join(placeholders, ","))
+
+	rows, err := d.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	existing := make(map[int]struct{})
+
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		existing[id] = struct{}{}
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	var missing []int
+	for _, id := range chatIDs {
+		if _, ok := existing[id]; !ok {
+			missing = append(missing, id)
+		}
+	}
+
+	return missing, nil
 }
