@@ -1,77 +1,16 @@
 package client
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 
 	"github.com/slipe-fun/bloom-kit/crypto"
-	"github.com/slipe-fun/skid-v4/pkg/identity"
+	"github.com/slipe-fun/bloom-kit/domain"
 )
 
-type PublicKeys struct {
-	MlKem768 string `json:"ml_kem768_public_key"`
-	X448     string `json:"x448_public_key"`
-	Ed448    string `json:"ed448_public_key"`
-}
-
-type SavedCredentials struct {
-	UserID      string `json:"user_id"`
-	RecoveryKey []byte `json:"recovery_key"`
-	MasterKey   []byte `json:"master_key"`
-	PublicKeys
-	SecretKeys []byte `json:"secret_keys"`
-	UserJSON   []byte `json:"user_json"`
-	Token      string `json:"token"`
-}
-
-func mapPublicKeys(mlKem768, x448, ed448 []byte) *PublicKeys {
-	return &PublicKeys{
-		MlKem768: base64.StdEncoding.EncodeToString(mlKem768),
-		X448:     base64.StdEncoding.EncodeToString(x448),
-		Ed448:    base64.StdEncoding.EncodeToString(ed448),
-	}
-}
-
-func mapSecretKeys(secretKeys *identity.SecretKeys) (*[]byte, error) {
-	packSecretKeys, err := secretKeys.Pack()
-	if err != nil {
-		return nil, err
-	}
-
-	return &packSecretKeys, nil
-}
-
-func unmapSecretKeys(mappedSecretKeys []byte) (*identity.SecretKeys, error) {
-	return identity.Unpack(mappedSecretKeys)
-}
-
-func unmapPublicKeys(publicKeys *PublicKeys) (*identity.PublicKeys, error) {
-	mlKem768Bytes, err := base64.StdEncoding.DecodeString(publicKeys.MlKem768)
-	if err != nil {
-		return nil, err
-	}
-
-	x448Bytes, err := base64.StdEncoding.DecodeString(publicKeys.X448)
-	if err != nil {
-		return nil, err
-	}
-
-	ed448Bytes, err := base64.StdEncoding.DecodeString(publicKeys.Ed448)
-	if err != nil {
-		return nil, err
-	}
-
-	return &identity.PublicKeys{
-		MlKem768: mlKem768Bytes,
-		X448:     x448Bytes,
-		Ed448:    ed448Bytes,
-	}, nil
-}
-
-func (c *BloomClient) saveCredentials(creds *SavedCredentials) error {
+func (c *BloomClient) saveCredentials(creds *domain.SavedCredentials) error {
 	plainText, err := json.Marshal(creds)
 	if err != nil {
 		return err
@@ -102,7 +41,7 @@ func (c *BloomClient) saveCredentials(creds *SavedCredentials) error {
 	return nil
 }
 
-func (c *BloomClient) loadCredentials() (*SavedCredentials, error) {
+func (c *BloomClient) loadCredentials() (*domain.SavedCredentials, error) {
 	filePath := filepath.Join(c.storagePath, "session.dat")
 
 	ciphertext, err := os.ReadFile(filePath)
@@ -120,15 +59,15 @@ func (c *BloomClient) loadCredentials() (*SavedCredentials, error) {
 	}
 	defer crypto.Zero(plainText)
 
-	var creds SavedCredentials
+	var creds domain.SavedCredentials
 	err = json.Unmarshal(plainText, &creds)
 	if err != nil {
 		return nil, err
 	}
 
-	c.credentials = &SavedCredentials{
+	c.credentials = &domain.SavedCredentials{
 		UserID: creds.UserID,
-		PublicKeys: PublicKeys{
+		PublicKeys: domain.PublicKeys{
 			MlKem768: creds.PublicKeys.MlKem768,
 			X448:     creds.PublicKeys.X448,
 			Ed448:    creds.PublicKeys.Ed448,

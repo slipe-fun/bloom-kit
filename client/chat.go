@@ -6,8 +6,8 @@ import (
 	"errors"
 	"time"
 
-	chatApi "github.com/slipe-fun/bloom-kit/api/chat"
 	"github.com/slipe-fun/bloom-kit/domain"
+	"github.com/slipe-fun/bloom-kit/mappers"
 	"github.com/slipe-fun/skid-v4/pkg/identity"
 )
 
@@ -33,24 +33,24 @@ func getChatOtherMember(chat *domain.Chat, memberID string) *domain.User {
 	return nil
 }
 
-func (c *BloomClient) CreateChat(receiverUser *CreateChatRequest) ([]byte, error) {
+func (c *BloomClient) createChat(receiverUser *CreateChatRequest) (*ChatResponse, error) {
 	creds, err := c.loadCredentials()
 	if err != nil {
 		return nil, err
 	}
 
-	publicKeys, err := unmapPublicKeys(&creds.PublicKeys)
+	publicKeys, err := mappers.UnmapPublicKeys(&creds.PublicKeys)
 	if err != nil {
 		return nil, err
 	}
 
-	secretKeys, err := unmapSecretKeys(creds.SecretKeys)
+	secretKeys, err := mappers.UnmapSecretKeys(creds.SecretKeys)
 	if err != nil {
 		return nil, err
 	}
 	defer secretKeys.Wipe()
 
-	receiverPublicKeys, err := unmapPublicKeys(&PublicKeys{
+	receiverPublicKeys, err := mappers.UnmapPublicKeys(&domain.PublicKeys{
 		MlKem768: receiverUser.MlKem768PublicKey,
 		X448:     receiverUser.X448PublicKey,
 		Ed448:    receiverUser.Ed448PublicKey,
@@ -105,7 +105,7 @@ func (c *BloomClient) CreateChat(receiverUser *CreateChatRequest) ([]byte, error
 		return nil, err
 	}
 
-	return json.Marshal(response)
+	return &response, nil
 }
 
 func (c *BloomClient) getChats() (*[]ChatResponse, error) {
@@ -162,7 +162,7 @@ func (c *BloomClient) getChats() (*[]ChatResponse, error) {
 		return nil, err
 	}
 
-	publicKeys, err := unmapPublicKeys(&c.credentials.PublicKeys)
+	publicKeys, err := mappers.UnmapPublicKeys(&c.credentials.PublicKeys)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +176,7 @@ func (c *BloomClient) getChats() (*[]ChatResponse, error) {
 		},
 	}
 
-	secretKeys, err := unmapSecretKeys(creds.SecretKeys)
+	secretKeys, err := mappers.UnmapSecretKeys(creds.SecretKeys)
 	if err != nil {
 		return nil, err
 	}
@@ -194,35 +194,16 @@ func (c *BloomClient) getChats() (*[]ChatResponse, error) {
 			return nil, errors.New("no chat recipient")
 		}
 
-		recipientPublicKeys, err := unmapPublicKeys(&PublicKeys{
-			MlKem768: recipient.MlKemPublicKey,
-			X448:     recipient.EcdhPublicKey,
-			Ed448:    recipient.EdPublicKey,
-		})
+		recipientIdentity := mappers.ConvertUserToIdentity(recipient)
+
+		handshakePayload, err := mappers.DecodeHandshake(chat.Handshake)
 		if err != nil {
 			return nil, err
 		}
 
-		recipientIdentity := &identity.User{
-			ID: recipient.ID,
-			PublicKeys: identity.PublicKeys{
-				MlKem768: recipientPublicKeys.MlKem768,
-				X448:     recipientPublicKeys.X448,
-				Ed448:    recipientPublicKeys.Ed448,
-			},
-		}
-
-		handshakePayload, err := chatApi.DecodeHandshake(chat.Handshake)
+		chatKey, syncKey, err := c.chatManager.FinalizeHandshake(handshakePayload, userIdentity, secretKeys, recipientIdentity)
 		if err != nil {
 			return nil, err
-		}
-
-		chatKey, syncKey, err := identity.FinalizeKeyExchange(handshakePayload, userIdentity, secretKeys, recipientIdentity, nil, true)
-		if err != nil {
-			chatKey, syncKey, err = identity.FinalizeKeyExchange(handshakePayload, userIdentity, secretKeys, recipientIdentity, nil, false)
-			if err != nil {
-				return nil, err
-			}
 		}
 
 		missingChats = append(missingChats, domain.ChatWithKeys{
@@ -243,15 +224,6 @@ func (c *BloomClient) getChats() (*[]ChatResponse, error) {
 	}
 
 	return &result, nil
-}
-
-func (c *BloomClient) GetChats() ([]byte, error) {
-	chats, err := c.getChats()
-	if err != nil {
-		return nil, err
-	}
-
-	return json.Marshal(chats)
 }
 
 func (c *BloomClient) getLocalChats() ([]ChatResponse, error) {
@@ -294,8 +266,17 @@ func (c *BloomClient) getLocalChats() ([]ChatResponse, error) {
 	return result, nil
 }
 
-func (c *BloomClient) GetLocalChats() ([]byte, error) {
-	chats, err := c.getLocalChats()
+func (c *BloomClient) CreateChat(receiverUser *CreateChatRequest) ([]byte, error) {
+	createdChat, err := c.createChat(receiverUser)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(createdChat)
+}
+
+func (c *BloomClient) GetChats() ([]byte, error) {
+	chats, err := c.getChats()
 	if err != nil {
 		return nil, err
 	}
@@ -303,21 +284,13 @@ func (c *BloomClient) GetLocalChats() ([]byte, error) {
 	return json.Marshal(chats)
 }
 
-func (c *BloomClient) notifyChatsUpdated() {
-	c.listenerMu.Lock()
-	listener := c.chatsListener
-	c.listenerMu.Unlock()
-
-	if listener == nil {
-		return
-	}
-
-	localChatsBytes, err := c.GetLocalChats()
+func (c *BloomClient) GetLocalChats() ([]byte, error) {
+	chats, err := c.getLocalChats()
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	listener.OnChatsUpdated(localChatsBytes)
+	return json.Marshal(chats)
 }
 
 func (c *BloomClient) RegisterChatsListener(listener ChatsListener) {
@@ -332,15 +305,6 @@ func (c *BloomClient) UnregisterChatsListener() {
 	c.listenerMu.Lock()
 	c.chatsListener = nil
 	c.listenerMu.Unlock()
-}
-
-func (c *BloomClient) syncRemoteChats() {
-	_, err := c.getChats()
-	if err != nil {
-		return
-	}
-
-	c.notifyChatsUpdated()
 }
 
 func (c *BloomClient) StartChatsSync() {
@@ -379,4 +343,30 @@ func (c *BloomClient) StopChatsSync() {
 		c.syncCancel()
 		c.syncCancel = nil
 	}
+}
+
+func (c *BloomClient) notifyChatsUpdated() {
+	c.listenerMu.Lock()
+	listener := c.chatsListener
+	c.listenerMu.Unlock()
+
+	if listener == nil {
+		return
+	}
+
+	localChatsBytes, err := c.GetLocalChats()
+	if err != nil {
+		return
+	}
+
+	listener.OnChatsUpdated(localChatsBytes)
+}
+
+func (c *BloomClient) syncRemoteChats() {
+	_, err := c.getChats()
+	if err != nil {
+		return
+	}
+
+	c.notifyChatsUpdated()
 }

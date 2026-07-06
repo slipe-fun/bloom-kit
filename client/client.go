@@ -12,6 +12,7 @@ import (
 	chatClient "github.com/slipe-fun/bloom-kit/api/chat"
 	userClient "github.com/slipe-fun/bloom-kit/api/user"
 	"github.com/slipe-fun/bloom-kit/database"
+	"github.com/slipe-fun/bloom-kit/domain"
 	authManager "github.com/slipe-fun/bloom-kit/managers/auth"
 	chatManager "github.com/slipe-fun/bloom-kit/managers/chat"
 	userManager "github.com/slipe-fun/bloom-kit/managers/user"
@@ -26,7 +27,7 @@ type BloomClient struct {
 	authManager   *authManager.AuthManager
 	userManager   *userManager.UserManager
 	chatManager   *chatManager.ChatManager
-	credentials   *SavedCredentials
+	credentials   *domain.SavedCredentials
 	database      *database.Database
 	storagePath   string
 	encryptionKey []byte

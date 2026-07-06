@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
+	"github.com/slipe-fun/bloom-kit/domain"
+	"github.com/slipe-fun/bloom-kit/mappers"
 	"github.com/slipe-fun/skid-v4/pkg/identity"
 	"github.com/tink-crypto/tink-go/v2/subtle/random"
 )
@@ -36,7 +38,7 @@ func (c *BloomClient) Register() (*RegisterResult, error) {
 		panic(err)
 	}
 
-	mappedSecretKeys, err := mapSecretKeys(secret)
+	mappedSecretKeys, err := mappers.MapSecretKeys(secret)
 	if err != nil {
 		return nil, err
 	}
@@ -46,11 +48,11 @@ func (c *BloomClient) Register() (*RegisterResult, error) {
 		return nil, err
 	}
 
-	err = c.saveCredentials(&SavedCredentials{
+	err = c.saveCredentials(&domain.SavedCredentials{
 		UserID:      registerResponse.User.ID,
 		RecoveryKey: recoveryKey,
 		MasterKey:   masterKey,
-		PublicKeys: *mapPublicKeys(
+		PublicKeys: *mappers.MapPublicKeys(
 			userIdentity.PublicKeys.MlKem768,
 			userIdentity.PublicKeys.X448,
 			userIdentity.PublicKeys.Ed448,
@@ -118,16 +120,16 @@ func (c *BloomClient) Login(userID, recoveryKey string) (*LoginResult, error) {
 		return nil, err
 	}
 
-	mappedSecretKeys, err := mapSecretKeys(secretKeys)
+	mappedSecretKeys, err := mappers.MapSecretKeys(secretKeys)
 	if err != nil {
 		return nil, err
 	}
 
-	err = c.saveCredentials(&SavedCredentials{
+	err = c.saveCredentials(&domain.SavedCredentials{
 		UserID:      finishLoginResult.User.ID,
 		RecoveryKey: recoveryKeyBytes,
 		MasterKey:   masterKey,
-		PublicKeys: *mapPublicKeys(
+		PublicKeys: *mappers.MapPublicKeys(
 			userIdentity.PublicKeys.MlKem768,
 			userIdentity.PublicKeys.X448,
 			userIdentity.PublicKeys.Ed448,
