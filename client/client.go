@@ -1,9 +1,11 @@
 package client
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/slipe-fun/bloom-kit/api"
 	authClient "github.com/slipe-fun/bloom-kit/api/auth"
@@ -15,6 +17,10 @@ import (
 	userManager "github.com/slipe-fun/bloom-kit/managers/user"
 )
 
+type ChatsListener interface {
+	OnChatsUpdated(chatsJSON []byte)
+}
+
 type BloomClient struct {
 	apiClient     *api.Client
 	authManager   *authManager.AuthManager
@@ -24,6 +30,11 @@ type BloomClient struct {
 	database      *database.Database
 	storagePath   string
 	encryptionKey []byte
+
+	chatsListener ChatsListener
+	listenerMu    sync.RWMutex
+	syncCancel    context.CancelFunc
+	syncMu        sync.Mutex
 }
 
 func NewClient(baseURL, storagePath string, encryptionKey []byte) *BloomClient {

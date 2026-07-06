@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	chatApi "github.com/slipe-fun/bloom-kit/api/chat"
 	"github.com/slipe-fun/bloom-kit/domain"
@@ -300,4 +301,82 @@ func (c *BloomClient) GetLocalChats() ([]byte, error) {
 	}
 
 	return json.Marshal(chats)
+}
+
+func (c *BloomClient) notifyChatsUpdated() {
+	c.listenerMu.Lock()
+	listener := c.chatsListener
+	c.listenerMu.Unlock()
+
+	if listener == nil {
+		return
+	}
+
+	localChatsBytes, err := c.GetLocalChats()
+	if err != nil {
+		return
+	}
+
+	listener.OnChatsUpdated(localChatsBytes)
+}
+
+func (c *BloomClient) RegisterChatsListener(listener ChatsListener) {
+	c.listenerMu.Lock()
+	c.chatsListener = listener
+	c.listenerMu.Unlock()
+
+	c.notifyChatsUpdated()
+}
+
+func (c *BloomClient) UnregisterChatsListener() {
+	c.listenerMu.Lock()
+	c.chatsListener = nil
+	c.listenerMu.Unlock()
+}
+
+func (c *BloomClient) syncRemoteChats() {
+	_, err := c.getChats()
+	if err != nil {
+		return
+	}
+
+	c.notifyChatsUpdated()
+}
+
+func (c *BloomClient) StartChatsSync() {
+	c.syncMu.Lock()
+	defer c.syncMu.Unlock()
+
+	if c.syncCancel != nil {
+		return
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	c.syncCancel = cancel
+
+	go func() {
+		c.syncRemoteChats()
+
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				c.syncRemoteChats()
+			}
+		}
+	}()
+}
+
+func (c *BloomClient) StopChatsSync() {
+	c.syncMu.Lock()
+	defer c.syncMu.Unlock()
+
+	if c.syncCancel != nil {
+		c.syncCancel()
+		c.syncCancel = nil
+	}
 }
