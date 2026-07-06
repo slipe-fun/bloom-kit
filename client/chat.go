@@ -24,6 +24,85 @@ type ChatResponse struct {
 	Recipient json.RawMessage `json:"recipient"`
 }
 
+func (c *BloomClient) CreateChat(receiverUser *CreateChatRequest) ([]byte, error) {
+	createdChat, err := c.createChat(receiverUser)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(createdChat)
+}
+
+func (c *BloomClient) GetChats() ([]byte, error) {
+	chats, err := c.getChats()
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(chats)
+}
+
+func (c *BloomClient) GetLocalChats() ([]byte, error) {
+	chats, err := c.getLocalChats()
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(chats)
+}
+
+func (c *BloomClient) RegisterChatsListener(listener ChatsListener) {
+	c.listenerMu.Lock()
+	c.chatsListener = listener
+	c.listenerMu.Unlock()
+
+	c.notifyChatsUpdated()
+}
+
+func (c *BloomClient) UnregisterChatsListener() {
+	c.listenerMu.Lock()
+	c.chatsListener = nil
+	c.listenerMu.Unlock()
+}
+
+func (c *BloomClient) StartChatsSync() {
+	c.syncMu.Lock()
+	defer c.syncMu.Unlock()
+
+	if c.syncCancel != nil {
+		return
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	c.syncCancel = cancel
+
+	go func() {
+		c.syncRemoteChats()
+
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				c.syncRemoteChats()
+			}
+		}
+	}()
+}
+
+func (c *BloomClient) StopChatsSync() {
+	c.syncMu.Lock()
+	defer c.syncMu.Unlock()
+
+	if c.syncCancel != nil {
+		c.syncCancel()
+		c.syncCancel = nil
+	}
+}
+
 func getChatOtherMember(chat *domain.Chat, memberID string) *domain.User {
 	for i, member := range chat.Members {
 		if member.ID != memberID {
@@ -264,85 +343,6 @@ func (c *BloomClient) getLocalChats() ([]ChatResponse, error) {
 	}
 
 	return result, nil
-}
-
-func (c *BloomClient) CreateChat(receiverUser *CreateChatRequest) ([]byte, error) {
-	createdChat, err := c.createChat(receiverUser)
-	if err != nil {
-		return nil, err
-	}
-
-	return json.Marshal(createdChat)
-}
-
-func (c *BloomClient) GetChats() ([]byte, error) {
-	chats, err := c.getChats()
-	if err != nil {
-		return nil, err
-	}
-
-	return json.Marshal(chats)
-}
-
-func (c *BloomClient) GetLocalChats() ([]byte, error) {
-	chats, err := c.getLocalChats()
-	if err != nil {
-		return nil, err
-	}
-
-	return json.Marshal(chats)
-}
-
-func (c *BloomClient) RegisterChatsListener(listener ChatsListener) {
-	c.listenerMu.Lock()
-	c.chatsListener = listener
-	c.listenerMu.Unlock()
-
-	c.notifyChatsUpdated()
-}
-
-func (c *BloomClient) UnregisterChatsListener() {
-	c.listenerMu.Lock()
-	c.chatsListener = nil
-	c.listenerMu.Unlock()
-}
-
-func (c *BloomClient) StartChatsSync() {
-	c.syncMu.Lock()
-	defer c.syncMu.Unlock()
-
-	if c.syncCancel != nil {
-		return
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	c.syncCancel = cancel
-
-	go func() {
-		c.syncRemoteChats()
-
-		ticker := time.NewTicker(10 * time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				c.syncRemoteChats()
-			}
-		}
-	}()
-}
-
-func (c *BloomClient) StopChatsSync() {
-	c.syncMu.Lock()
-	defer c.syncMu.Unlock()
-
-	if c.syncCancel != nil {
-		c.syncCancel()
-		c.syncCancel = nil
-	}
 }
 
 func (c *BloomClient) notifyChatsUpdated() {

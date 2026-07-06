@@ -32,7 +32,6 @@ func (a *AuthManager) FinishLogin(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	defer decryptedSecretKeys.Wipe()
 
 	finishLoginRequest, err := auth.NewFinishLoginRequest(user, decryptedSecretKeys, challenge)
 	if err != nil {

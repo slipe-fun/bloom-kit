@@ -12,7 +12,7 @@ func (c *ChatManager) FinalizeHandshake(
 ) ([]byte, []byte, error) {
 	chatKey, syncKey, err := identity.FinalizeKeyExchange(handshakePayload, userIdentity, secretKeys, recipientIdentity, nil, true)
 	if err != nil {
-		chatKey, syncKey, err = identity.FinalizeKeyExchange(handshakePayload, userIdentity, secretKeys, recipientIdentity, nil, false)
+		chatKey, syncKey, err = identity.FinalizeKeyExchange(handshakePayload, recipientIdentity, nil, userIdentity, secretKeys, false)
 		if err != nil {
 			return nil, nil, err
 		}

@@ -23,6 +23,7 @@ type ChatsListener interface {
 }
 
 type BloomClient struct {
+	wsURL         string
 	apiClient     *api.Client
 	authManager   *authManager.AuthManager
 	userManager   *userManager.UserManager
@@ -38,7 +39,7 @@ type BloomClient struct {
 	syncMu        sync.Mutex
 }
 
-func NewClient(baseURL, storagePath string, encryptionKey []byte) *BloomClient {
+func NewClient(baseURL, wsURL, storagePath string, encryptionKey []byte) *BloomClient {
 	c := api.NewClient(baseURL)
 
 	ac := authClient.NewAuthClient(c)
@@ -49,6 +50,7 @@ func NewClient(baseURL, storagePath string, encryptionKey []byte) *BloomClient {
 	copy(localKey, encryptionKey)
 
 	return &BloomClient{
+		wsURL:         wsURL,
 		apiClient:     c,
 		authManager:   authManager.NewAuthManager(ac),
 		userManager:   userManager.NewUserManager(uc),
@@ -73,6 +75,7 @@ func (c *BloomClient) Initialize() error {
 		}
 		return fmt.Errorf("failed to load credentials: %w", err)
 	}
+	c.startWebSocket(context.Background(), c.wsURL)
 	return nil
 }
 
