@@ -118,10 +118,8 @@ func (c *BloomClient) handleNewChatEvent(chatEvent *ChatNewEvent) {
 
 	chatKey, syncKey, err := identity.FinalizeKeyExchange(handshakePayload, userIdentity, secretKeys, recipientIdentity, nil, true)
 	if err != nil {
-		fmt.Println(1, err)
 		chatKey, syncKey, err = identity.FinalizeKeyExchange(handshakePayload, recipientIdentity, nil, userIdentity, secretKeys, false)
 		if err != nil {
-			fmt.Println(2, err)
 			return
 		}
 	}
