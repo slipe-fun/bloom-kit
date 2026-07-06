@@ -1,4 +1,4 @@
-package mobile
+package client
 
 import (
 	"context"
@@ -22,6 +22,11 @@ func (c *BloomClient) GetMe() ([]byte, error) {
 		return nil, err
 	}
 
+	err = c.database.SaveUser(user)
+	if err != nil {
+		return nil, err
+	}
+
 	userBytes, err := json.Marshal(user)
 	if err != nil {
 		return nil, err
@@ -32,6 +37,11 @@ func (c *BloomClient) GetMe() ([]byte, error) {
 
 func (c *BloomClient) SearchUsers(query string) ([]byte, error) {
 	users, err := c.userManager.Search(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.database.SaveUsers(users)
 	if err != nil {
 		return nil, err
 	}
@@ -70,11 +80,21 @@ func (c *BloomClient) EditUser(req *EditRequest) ([]byte, error) {
 		return nil, err
 	}
 
+	err = c.database.SaveUser(&editedUser.User)
+	if err != nil {
+		return nil, err
+	}
+
 	return json.Marshal(editedUser.User)
 }
 
 func (c *BloomClient) GetUser(userID string) ([]byte, error) {
 	user, err := c.userManager.Get(context.Background(), userID)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.database.SaveUser(user)
 	if err != nil {
 		return nil, err
 	}

@@ -40,6 +40,17 @@ func NewDatabase(encryptionKey []byte, storagePath string) (*Database, error) {
 	    chat_key TEXT NOT NULL,
 	    sync_key TEXT NOT NULL
 	);
+
+	CREATE TABLE IF NOT EXISTS users (
+	    id TEXT PRIMARY KEY,
+	    username TEXT NOT NULL UNIQUE,
+	    display_name TEXT,
+	    description TEXT,
+	    ml_kem_public_key TEXT NOT NULL,
+	    ecdh_public_key TEXT NOT NULL,
+	    ed_public_key TEXT NOT NULL,
+	    date DATETIME NOT NULL
+	);
 	`
 
 	if _, err := db.Exec(schema); err != nil {

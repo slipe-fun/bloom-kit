@@ -1,4 +1,4 @@
-package mobile
+package client
 
 import (
 	"encoding/base64"

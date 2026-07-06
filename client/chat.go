@@ -1,4 +1,4 @@
-package mobile
+package client
 
 import (
 	"context"
@@ -89,6 +89,11 @@ func (c *BloomClient) CreateChat(receiverUser *CreateChatRequest) ([]byte, error
 		Chat:      *createdChat,
 		Me:        me,
 		Recipient: recipient,
+	}
+
+	err = c.database.SaveUsers(&createdChat.Members)
+	if err == nil {
+		return nil, err
 	}
 
 	return json.Marshal(response)
