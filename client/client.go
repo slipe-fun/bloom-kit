@@ -10,11 +10,13 @@ import (
 	"github.com/slipe-fun/bloom-kit/api"
 	authClient "github.com/slipe-fun/bloom-kit/api/auth"
 	chatClient "github.com/slipe-fun/bloom-kit/api/chat"
+	messageClient "github.com/slipe-fun/bloom-kit/api/message"
 	userClient "github.com/slipe-fun/bloom-kit/api/user"
 	"github.com/slipe-fun/bloom-kit/database"
 	"github.com/slipe-fun/bloom-kit/domain"
 	authManager "github.com/slipe-fun/bloom-kit/managers/auth"
 	chatManager "github.com/slipe-fun/bloom-kit/managers/chat"
+	messageManager "github.com/slipe-fun/bloom-kit/managers/message"
 	userManager "github.com/slipe-fun/bloom-kit/managers/user"
 )
 
@@ -23,15 +25,16 @@ type ChatsListener interface {
 }
 
 type BloomClient struct {
-	wsURL         string
-	apiClient     *api.Client
-	authManager   *authManager.AuthManager
-	userManager   *userManager.UserManager
-	chatManager   *chatManager.ChatManager
-	credentials   *domain.SavedCredentials
-	database      *database.Database
-	storagePath   string
-	encryptionKey []byte
+	wsURL          string
+	apiClient      *api.Client
+	authManager    *authManager.AuthManager
+	userManager    *userManager.UserManager
+	chatManager    *chatManager.ChatManager
+	messageManager *messageManager.MessageManager
+	credentials    *domain.SavedCredentials
+	database       *database.Database
+	storagePath    string
+	encryptionKey  []byte
 
 	chatsListener ChatsListener
 	listenerMu    sync.RWMutex
@@ -45,18 +48,20 @@ func NewClient(baseURL, wsURL, storagePath string, encryptionKey []byte) *BloomC
 	ac := authClient.NewAuthClient(c)
 	uc := userClient.NewUserClient(c)
 	cc := chatClient.NewChatClient(c)
+	mc := messageClient.NewMessageClient(c)
 
 	localKey := make([]byte, len(encryptionKey))
 	copy(localKey, encryptionKey)
 
 	return &BloomClient{
-		wsURL:         wsURL,
-		apiClient:     c,
-		authManager:   authManager.NewAuthManager(ac),
-		userManager:   userManager.NewUserManager(uc),
-		chatManager:   chatManager.NewChatManager(cc),
-		storagePath:   storagePath,
-		encryptionKey: localKey,
+		wsURL:          wsURL,
+		apiClient:      c,
+		authManager:    authManager.NewAuthManager(ac),
+		userManager:    userManager.NewUserManager(uc),
+		chatManager:    chatManager.NewChatManager(cc),
+		messageManager: messageManager.NewMessageManager(mc),
+		storagePath:    storagePath,
+		encryptionKey:  localKey,
 	}
 }
 

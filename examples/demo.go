@@ -8,15 +8,14 @@ import (
 	"github.com/slipe-fun/bloom-kit/api"
 	authClient "github.com/slipe-fun/bloom-kit/api/auth"
 	chatClient "github.com/slipe-fun/bloom-kit/api/chat"
-	"github.com/slipe-fun/bloom-kit/api/message"
 	messageClient "github.com/slipe-fun/bloom-kit/api/message"
 	userClient "github.com/slipe-fun/bloom-kit/api/user"
 	authManager "github.com/slipe-fun/bloom-kit/managers/auth"
 	chatManager "github.com/slipe-fun/bloom-kit/managers/chat"
+	messageManager "github.com/slipe-fun/bloom-kit/managers/message"
 	userManager "github.com/slipe-fun/bloom-kit/managers/user"
 	"github.com/slipe-fun/bloom-kit/mappers"
 	"github.com/slipe-fun/skid-v4/pkg/identity"
-	"github.com/slipe-fun/skid-v4/pkg/messages"
 	"github.com/tink-crypto/tink-go/v2/subtle/random"
 )
 
@@ -31,6 +30,7 @@ func main() {
 	authManager := authManager.NewAuthManager(authClient)
 	userManager := userManager.NewUserManager(userClient)
 	chatManager := chatManager.NewChatManager(chatClient)
+	messageManager := messageManager.NewMessageManager(messageClient)
 
 	ctx := context.Background()
 
@@ -70,19 +70,14 @@ func main() {
 	fmt.Println("Created chat key:", hex.EncodeToString(chatKey))
 	fmt.Println("Created chat sync key:", hex.EncodeToString(syncKey))
 
-	encryptedMessage, err := messages.Encrypt(chatKey, []byte("hi bro"), syncKey, user, receiverIdentity)
+	message, err := messageManager.Send(ctx, "hi chat", createdChat.ID, nil, chatKey, syncKey, user, receiverIdentity)
 	if err != nil {
 		panic(err)
 	}
 
-	sendMessageRequest := message.NewSendMessageRequest(createdChat.ID, nil, *encryptedMessage)
-
-	sentMessage, err := messageClient.Send(ctx, sendMessageRequest)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(sentMessage)
+	fmt.Println("Created message ID:", message.ID)
+	fmt.Println("Created message content:", string(message.Content))
+	fmt.Println("Created message author ID:", message.AuthorID)
 
 	// fmt.Println()
 
