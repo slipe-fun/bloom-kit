@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"time"
+
+	"github.com/slipe-fun/skid-v4/pkg/messages"
+)
 
 type RawMessage struct {
 	ID         int        `json:"id"`
@@ -12,7 +16,25 @@ type RawMessage struct {
 	ReplyTo    *int       `json:"reply_to,omitempty"`
 }
 
-type Message struct {
+type RawMessageWithReply struct {
 	RawMessage
-	ReplyToMessage *RawMessage `json:"reply_to,omitempty"`
+	ReplyToMessage *RawMessage
+}
+
+type MessageWithDecryptedData struct {
+	RawMessage
+	messages.Message
+}
+
+type Message struct {
+	MessageWithDecryptedData
+	ReplyToMessage *MessageWithDecryptedData `json:"reply_to,omitempty"`
+}
+
+type SendMessageRequest struct {
+	Ciphertext string `json:"ciphertext"`
+	Nonce      string `json:"nonce"`
+	Salt       string `json:"salt"`
+	ChatID     int    `json:"chat_id"`
+	ReplyTo    *int   `json:"reply_to,omitempty"`
 }
