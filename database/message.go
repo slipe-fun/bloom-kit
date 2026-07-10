@@ -4,7 +4,7 @@ import (
 	"github.com/slipe-fun/bloom-kit/domain"
 )
 
-func (d *Database) SaveMessage(message *domain.MessageWithDecryptedData) error {
+func (d *Database) SaveMessage(message *domain.Message) error {
 	_, err := d.db.Exec(`
 		INSERT INTO messages (
 			id,
@@ -29,7 +29,7 @@ func (d *Database) SaveMessage(message *domain.MessageWithDecryptedData) error {
 	return err
 }
 
-func (d *Database) GetMessages(chatID, afterID, limit int) ([]domain.MessageWithDecryptedData, error) {
+func (d *Database) GetMessages(chatID, beforeID, limit int) ([]domain.Message, error) {
 	rows, err := d.db.Query(`
 		SELECT
 			id,
@@ -41,19 +41,19 @@ func (d *Database) GetMessages(chatID, afterID, limit int) ([]domain.MessageWith
 			content
 		FROM messages
 		WHERE chat_id = ?
-		  AND id > ?
-		ORDER BY id ASC
+		  AND id < ?
+		ORDER BY id DESC
 		LIMIT ?
-	`, chatID, afterID, limit)
+	`, chatID, beforeID, limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var messages []domain.MessageWithDecryptedData
+	var messages []domain.Message
 
 	for rows.Next() {
-		var msg domain.MessageWithDecryptedData
+		var msg domain.Message
 
 		err := rows.Scan(
 			&msg.ID,
