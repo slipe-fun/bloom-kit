@@ -34,7 +34,6 @@ func (c *BloomClient) startWebSocket(ctx context.Context, wsURL string) {
 			default:
 				err := c.connectAndListen(ctx, fmt.Sprintf("%s?token=%s", wsURL, c.credentials.Token))
 				if err != nil {
-					fmt.Println(err)
 					time.Sleep(backoff)
 					if backoff < 30*time.Second {
 						backoff *= 2
@@ -105,14 +104,12 @@ func (c *BloomClient) handleNewChatEvent(chatEvent *ChatNewEvent) {
 
 	secretKeys, err := mappers.UnmapSecretKeys(creds.SecretKeys)
 	if err != nil {
-		fmt.Println(err)
 		return
 	}
 	defer secretKeys.Wipe()
 
 	handshakePayload, err := mappers.DecodeHandshake(chat.Handshake)
 	if err != nil {
-		fmt.Println(err)
 		return
 	}
 
@@ -126,7 +123,6 @@ func (c *BloomClient) handleNewChatEvent(chatEvent *ChatNewEvent) {
 
 	err = c.database.SaveChat(chat, chatKey, syncKey)
 	if err != nil {
-		fmt.Println(err)
 		return
 	}
 

@@ -270,19 +270,19 @@ func (c *BloomClient) getChats() (*[]ChatResponse, error) {
 
 		recipient := getChatOtherMember(chat, c.credentials.UserID)
 		if recipient == nil {
-			return nil, errors.New("no chat recipient")
+			continue
 		}
 
 		recipientIdentity := mappers.ConvertUserToIdentity(recipient)
 
 		handshakePayload, err := mappers.DecodeHandshake(chat.Handshake)
 		if err != nil {
-			return nil, err
+			continue
 		}
 
 		chatKey, syncKey, err := c.chatManager.FinalizeHandshake(handshakePayload, userIdentity, secretKeys, recipientIdentity)
 		if err != nil {
-			return nil, err
+			continue
 		}
 
 		missingChats = append(missingChats, domain.ChatWithKeys{
@@ -331,11 +331,11 @@ func (c *BloomClient) getLocalChats() ([]ChatResponse, error) {
 			RawChat: chat.RawChat,
 		}, c.credentials.UserID)
 		if recipient == nil {
-			return nil, errors.New("no chat recipient")
+			continue
 		}
 		recipientJSON, err := json.Marshal(recipient)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		newChatObject.Recipient = recipientJSON
 

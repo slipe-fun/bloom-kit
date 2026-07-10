@@ -4,6 +4,7 @@ go 1.26.4
 
 require (
 	github.com/cloudflare/circl v1.6.3
+	github.com/gorilla/websocket v1.5.3
 	github.com/slipe-fun/skid-v4 v0.0.0-20260621103234-7521338c1cc0
 	github.com/tink-crypto/tink-go/v2 v2.7.0
 	gosqlite.org v0.13.0
@@ -14,7 +15,6 @@ require (
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mr-tron/base58 v1.3.0 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect

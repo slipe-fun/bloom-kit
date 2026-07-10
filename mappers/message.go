@@ -3,6 +3,7 @@ package mappers
 import (
 	"encoding/base64"
 
+	"github.com/slipe-fun/bloom-kit/domain"
 	"github.com/slipe-fun/skid-v4/pkg/messages"
 )
 
@@ -27,4 +28,28 @@ func ConvertRawMessageToEncryptedMessage(ciphertext, nonce, salt string) (*messa
 		Nonce:      nonceBytes,
 		Salt:       saltBytes,
 	}, nil
+}
+
+func MapDomainMessageToDecrypted(msg *domain.Message) domain.DecryptedMessageWithReply {
+	decrypted := domain.DecryptedMessageWithReply{
+		DecryptedMessage: domain.DecryptedMessage{
+			ID:        msg.ID,
+			Content:   string(msg.Content),
+			AuthorID:  msg.AuthorID,
+			Timestamp: msg.Timestamp,
+			Seen:      msg.Seen,
+		},
+	}
+
+	if msg.ReplyToMessage != nil {
+		decrypted.ReplyTo = &domain.DecryptedMessage{
+			ID:        msg.ReplyToMessage.ID,
+			Content:   string(msg.ReplyToMessage.Content),
+			AuthorID:  msg.ReplyToMessage.AuthorID,
+			Timestamp: msg.ReplyToMessage.Timestamp,
+			Seen:      msg.ReplyToMessage.Seen,
+		}
+	}
+
+	return decrypted
 }
