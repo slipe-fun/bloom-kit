@@ -75,9 +75,26 @@ func main() {
 		panic(err)
 	}
 
+	_, err = messageManager.Send(ctx, "hi chat 2", createdChat.ID, &message.ID, chatKey, syncKey, user, receiverIdentity)
+	if err != nil {
+		panic(err)
+	}
+
 	fmt.Println("Created message ID:", message.ID)
 	fmt.Println("Created message content:", string(message.Content))
 	fmt.Println("Created message author ID:", message.AuthorID)
+
+	messages, err := messageManager.GetMessages(ctx, createdChat.ID, 0, "after", chatKey, syncKey, user, receiverIdentity)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, msg := range messages {
+		fmt.Println(msg.ID, string(msg.Content))
+		if msg.ReplyToMessage != nil {
+			fmt.Println("reply", msg.ReplyToMessage.ID, string(msg.ReplyToMessage.Content))
+		}
+	}
 
 	// fmt.Println()
 

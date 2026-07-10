@@ -18,11 +18,11 @@ type RawMessage struct {
 
 type RawMessageWithReply struct {
 	RawMessage
-	ReplyToMessage *RawMessage
+	ReplyToMessage *RawMessage `json:"reply_to,omitempty"`
 }
 
 type MessageWithDecryptedData struct {
-	RawMessage
+	RawMessageWithReply
 	messages.Message
 }
 

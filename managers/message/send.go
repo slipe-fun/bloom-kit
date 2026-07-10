@@ -35,13 +35,15 @@ func (m *MessageManager) Send(
 	var replyToMessage *domain.MessageWithDecryptedData
 	if sentMessage.ReplyToMessage != nil {
 		replyToMessage = &domain.MessageWithDecryptedData{
-			RawMessage: *sentMessage.ReplyToMessage,
+			RawMessageWithReply: domain.RawMessageWithReply{
+				RawMessage: *sentMessage.ReplyToMessage,
+			},
 		}
 	}
 
 	return &domain.Message{
 		MessageWithDecryptedData: domain.MessageWithDecryptedData{
-			RawMessage: sentMessage.RawMessage,
+			RawMessageWithReply: *sentMessage,
 			Message: messages.Message{
 				Content:   []byte(content),
 				AuthorID:  userIdentity.ID,
