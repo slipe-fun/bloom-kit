@@ -133,11 +133,19 @@ func (d *Database) GetChat(chatID int) (*domain.ChatWithKeys, error) {
 		return nil, err
 	}
 
-	return &domain.ChatWithKeys{
+	chatWithKeys := &domain.ChatWithKeys{
 		RawChat: chat,
 		ChatKey: chatKeyBytes,
 		SyncKey: syncKeyBytes,
-	}, nil
+	}
+
+	lastMsg, err := d.GetChatLastMessage(chatID)
+	if err != nil {
+		return nil, err
+	}
+	chatWithKeys.LastMessage = lastMsg
+
+	return chatWithKeys, nil
 }
 
 func (d *Database) GetChats() ([]domain.ChatWithKeys, error) {
@@ -151,6 +159,7 @@ func (d *Database) GetChats() ([]domain.ChatWithKeys, error) {
 	defer rows.Close()
 
 	var chats []domain.ChatWithKeys
+	var chatIDs []int
 
 	for rows.Next() {
 		var (
@@ -194,10 +203,23 @@ func (d *Database) GetChats() ([]domain.ChatWithKeys, error) {
 			ChatKey: chatKeyBytes,
 			SyncKey: syncKeyBytes,
 		})
+
+		chatIDs = append(chatIDs, chat.ID)
 	}
 
 	if err := rows.Err(); err != nil {
 		return nil, err
+	}
+
+	if len(chatIDs) > 0 {
+		lastMessagesMap, err := d.GetChatsLastMessages(chatIDs)
+		if err != nil {
+			return nil, err
+		}
+
+		for i := range chats {
+			chats[i].LastMessage = lastMessagesMap[chats[i].ID]
+		}
 	}
 
 	return chats, nil

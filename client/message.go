@@ -55,11 +55,19 @@ func (c *BloomClient) loadMessages(chatID, beforeID int) ([]domain.DecryptedMess
 		}
 
 		if len(messagesFromServer) > 0 {
+			for i, j := 0, len(messagesFromServer)-1; i < j; i, j = i+1, j-1 {
+				messagesFromServer[i], messagesFromServer[j] = messagesFromServer[j], messagesFromServer[i]
+			}
+
 			err = c.database.SaveMessages(messagesFromServer)
 			if err != nil {
 				return nil, err
 			}
 			sourceMessages = messagesFromServer
+
+			if beforeID == 0 {
+				c.notifyChatsUpdated()
+			}
 		}
 	}
 

@@ -193,17 +193,42 @@ func (c *BloomClient) getChats() (*[]ChatResponse, error) {
 		return nil, err
 	}
 
+	publicKeys, err := mappers.UnmapPublicKeys(&c.credentials.PublicKeys)
+	if err != nil {
+		return nil, err
+	}
+
+	userIdentity := &identity.User{
+		ID: c.credentials.UserID,
+		PublicKeys: identity.PublicKeys{
+			MlKem768: publicKeys.MlKem768,
+			X448:     publicKeys.X448,
+			Ed448:    publicKeys.Ed448,
+		},
+	}
+
 	chats, err := c.chatManager.GetChats(context.Background())
 	if err != nil {
 		return nil, err
+	}
+
+	localChats, err := c.database.GetChats()
+	if err != nil {
+		return nil, err
+	}
+	localChatsMap := make(map[int]domain.ChatWithKeys, len(localChats))
+	for _, lc := range localChats {
+		localChatsMap[lc.ID] = lc
 	}
 
 	chatsSlice := *chats
 	var result []ChatResponse
 	var ids []int
 	var members []domain.User
+	var messages []domain.Message
 
 	chatsMap := make(map[int]*domain.Chat, len(chatsSlice))
+	resultMap := make(map[int]int)
 
 	for i := range chatsSlice {
 		chat := &chatsSlice[i]
@@ -213,6 +238,8 @@ func (c *BloomClient) getChats() (*[]ChatResponse, error) {
 		if recipient == nil {
 			return nil, errors.New("no chat recipient")
 		}
+		recipientIdentity := mappers.ConvertUserToIdentity(recipient)
+
 		members = append(members, *recipient)
 		ids = append(ids, chat.ID)
 
@@ -233,26 +260,36 @@ func (c *BloomClient) getChats() (*[]ChatResponse, error) {
 		}
 		newChatObject.Recipient = recipientJSON
 
+		if lc, exists := localChatsMap[chat.ID]; exists {
+			if chat.EncryptedLastMessage != nil {
+				if lc.LastMessage != nil && lc.LastMessage.ID == chat.EncryptedLastMessage.ID {
+					newChatObject.LastMessage = lc.LastMessage
+				} else {
+					decryptedLastMessage, err := c.messageManager.DecryptMessage(chat.EncryptedLastMessage, lc.ChatKey, lc.SyncKey, userIdentity, recipientIdentity)
+					if err == nil {
+						newChatObject.LastMessage = &domain.Message{
+							MessageWithDecryptedData: domain.MessageWithDecryptedData{
+								RawMessageWithReply: *chat.EncryptedLastMessage,
+								Message:             *decryptedLastMessage,
+							},
+						}
+						messages = append(messages, *newChatObject.LastMessage)
+					} else if lc.LastMessage != nil {
+						newChatObject.LastMessage = lc.LastMessage
+					}
+				}
+			} else if lc.LastMessage != nil {
+				newChatObject.LastMessage = lc.LastMessage
+			}
+		}
+
 		result = append(result, newChatObject)
+		resultMap[chat.ID] = len(result) - 1
 	}
 
 	missing, err := c.database.GetMissingChatIDs(ids)
 	if err != nil {
 		return nil, err
-	}
-
-	publicKeys, err := mappers.UnmapPublicKeys(&c.credentials.PublicKeys)
-	if err != nil {
-		return nil, err
-	}
-
-	userIdentity := &identity.User{
-		ID: c.credentials.UserID,
-		PublicKeys: identity.PublicKeys{
-			MlKem768: publicKeys.MlKem768,
-			X448:     publicKeys.X448,
-			Ed448:    publicKeys.Ed448,
-		},
 	}
 
 	secretKeys, err := mappers.UnmapSecretKeys(creds.SecretKeys)
@@ -285,21 +322,52 @@ func (c *BloomClient) getChats() (*[]ChatResponse, error) {
 			continue
 		}
 
-		missingChats = append(missingChats, domain.ChatWithKeys{
+		var decryptedLastMessage *domain.Message
+		if chat.EncryptedLastMessage != nil {
+			decLastMessage, err := c.messageManager.DecryptMessage(chat.EncryptedLastMessage, chatKey, syncKey, userIdentity, recipientIdentity)
+			if err == nil {
+				decryptedLastMessage = &domain.Message{
+					MessageWithDecryptedData: domain.MessageWithDecryptedData{
+						RawMessageWithReply: *chat.EncryptedLastMessage,
+						Message:             *decLastMessage,
+					},
+				}
+				messages = append(messages, *decryptedLastMessage)
+
+				if idx, found := resultMap[id]; found {
+					result[idx].LastMessage = decryptedLastMessage
+				}
+			}
+		}
+
+		newChat := domain.ChatWithKeys{
 			RawChat: chat.RawChat,
 			ChatKey: chatKey,
 			SyncKey: syncKey,
-		})
+		}
+
+		missingChats = append(missingChats, newChat)
 	}
 
-	err = c.database.SaveChats(missingChats)
-	if err != nil {
-		return nil, err
+	if len(missingChats) > 0 {
+		err = c.database.SaveChats(missingChats)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	err = c.database.SaveUsers(members)
-	if err != nil {
-		return nil, err
+	if len(members) > 0 {
+		err = c.database.SaveUsers(members)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if len(messages) > 0 {
+		err = c.database.SaveMessages(messages)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &result, nil
@@ -322,6 +390,7 @@ func (c *BloomClient) getLocalChats() ([]ChatResponse, error) {
 					Members:   chat.Members,
 					Handshake: chat.Handshake,
 				},
+				LastMessage: chat.LastMessage,
 			},
 		}
 

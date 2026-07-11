@@ -19,8 +19,10 @@ type RawChat struct {
 
 type Chat struct {
 	RawChat
-	LastMessage     *Message `json:"last_message,omitempty"`
-	LastReadMessage *Message `json:"last_read_message,omitempty"`
+	EncryptedLastMessage     *RawMessageWithReply `json:"last_message,omitempty"`
+	LastMessage              *Message
+	EncryptedLastReadMessage *RawMessageWithReply `json:"last_read_message,omitempty"`
+	LastReadMessage          *Message
 }
 
 type ChatWithKeys struct {
