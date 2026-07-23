@@ -48,6 +48,8 @@ func (c *BloomClient) Register() (*RegisterResult, error) {
 		return nil, err
 	}
 
+	encodedRecoveryKey := hex.EncodeToString(recoveryKey)
+
 	err = c.saveCredentials(&domain.SavedCredentials{
 		UserID:      registerResponse.User.ID,
 		RecoveryKey: recoveryKey,
@@ -70,7 +72,7 @@ func (c *BloomClient) Register() (*RegisterResult, error) {
 	return &RegisterResult{
 		Token:       registerResponse.Token,
 		UserJSON:    userBytes,
-		RecoveryKey: hex.EncodeToString(recoveryKey),
+		RecoveryKey: encodedRecoveryKey,
 	}, nil
 }
 

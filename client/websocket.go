@@ -23,6 +23,40 @@ type ChatNewEvent struct {
 	domain.Chat
 }
 
+type MessageNewEvent struct {
+	Type    string             `json:"type"`
+	ID      int                `json:"id"`
+	UserID  string             `json:"user_id"`
+	ReplyTo *domain.RawMessage `json:"reply_to,omitempty"`
+	*domain.RawMessageWithReply
+}
+
+func (m *MessageNewEvent) UnmarshalJSON(data []byte) error {
+	var helper struct {
+		Type    string             `json:"type"`
+		ID      int                `json:"id"`
+		UserID  string             `json:"user_id"`
+		ReplyTo *domain.RawMessage `json:"reply_to,omitempty"`
+	}
+
+	if err := json.Unmarshal(data, &helper); err != nil {
+		return err
+	}
+
+	var raw domain.RawMessageWithReply
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	m.Type = helper.Type
+	m.ID = helper.ID
+	m.UserID = helper.UserID
+	m.ReplyTo = helper.ReplyTo
+	m.RawMessageWithReply = &raw
+
+	return nil
+}
+
 func (c *BloomClient) startWebSocket(ctx context.Context, wsURL string) {
 	go func() {
 		backoff := time.Second
@@ -76,6 +110,14 @@ func (c *BloomClient) connectAndListen(ctx context.Context, url string) error {
 				}
 
 				c.handleNewChatEvent(&event)
+			case "message.new":
+				var event MessageNewEvent
+				if err := json.Unmarshal(message, &event); err != nil {
+					fmt.Println(err)
+					continue
+				}
+
+				c.handleNewMessageEvent(&event)
 			}
 		}
 	}
@@ -127,6 +169,80 @@ func (c *BloomClient) handleNewChatEvent(chatEvent *ChatNewEvent) {
 	}
 
 	_ = c.database.SaveUser(recipient)
+
+	c.notifyChatsUpdated()
+}
+
+func (c *BloomClient) handleNewMessageEvent(messageEvent *MessageNewEvent) {
+	chat, err := c.database.GetChat(messageEvent.ChatID)
+	if err != nil {
+		return
+	}
+
+	recipient := getChatOtherMember(&domain.Chat{
+		RawChat: chat.RawChat,
+	}, c.credentials.UserID)
+	recipientIdentity := mappers.ConvertUserToIdentity(recipient)
+
+	user := getChatOtherMember(&domain.Chat{
+		RawChat: chat.RawChat,
+	}, recipient.ID)
+	userIdentity := mappers.ConvertUserToIdentity(user)
+
+	decryptedMessage, err := c.messageManager.DecryptMessage(messageEvent.RawMessageWithReply, chat.ChatKey, chat.SyncKey, userIdentity, recipientIdentity)
+	if err != nil {
+		return
+	}
+	if decryptedMessage == nil {
+		return
+	}
+
+	var replyToMessage *domain.MessageWithDecryptedData
+	if messageEvent.ReplyTo != nil {
+		decryptedReply, err := c.messageManager.DecryptMessage(&domain.RawMessageWithReply{
+			RawMessage: *messageEvent.ReplyTo,
+		}, chat.ChatKey, chat.SyncKey, userIdentity, recipientIdentity)
+		if err != nil {
+			return
+		}
+		if decryptedReply == nil {
+			return
+		}
+
+		replyToMessage = &domain.MessageWithDecryptedData{
+			RawMessageWithReply: domain.RawMessageWithReply{
+				RawMessage: *messageEvent.ReplyTo,
+			},
+			Message: *decryptedReply,
+		}
+	}
+
+	msg := domain.Message{
+		MessageWithDecryptedData: domain.MessageWithDecryptedData{
+			RawMessageWithReply: *messageEvent.RawMessageWithReply,
+			Message:             *decryptedMessage,
+		},
+		ReplyToMessage: replyToMessage,
+	}
+
+	err = c.database.SaveMessage(&msg)
+	if err != nil {
+		return
+	}
+
+	decryptedWithReply := mappers.MapDomainMessageToDecrypted(&msg)
+	messageJSON, err := json.Marshal(decryptedWithReply)
+	if err != nil {
+		return
+	}
+
+	c.listenerMu.RLock()
+	messagesListener := c.messagesListener
+	c.listenerMu.RUnlock()
+
+	if messagesListener != nil {
+		messagesListener.OnNewMessage(messageJSON)
+	}
 
 	c.notifyChatsUpdated()
 }

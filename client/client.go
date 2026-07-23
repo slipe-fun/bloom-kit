@@ -24,6 +24,10 @@ type ChatsListener interface {
 	OnChatsUpdated(chatsJSON []byte)
 }
 
+type MessagesListener interface {
+	OnNewMessage(messageJSON []byte)
+}
+
 type BloomClient struct {
 	wsURL          string
 	apiClient      *api.Client
@@ -36,10 +40,11 @@ type BloomClient struct {
 	storagePath    string
 	encryptionKey  []byte
 
-	chatsListener ChatsListener
-	listenerMu    sync.RWMutex
-	syncCancel    context.CancelFunc
-	syncMu        sync.Mutex
+	chatsListener    ChatsListener
+	messagesListener MessagesListener
+	listenerMu       sync.RWMutex
+	syncCancel       context.CancelFunc
+	syncMu           sync.Mutex
 }
 
 func NewClient(baseURL, wsURL, storagePath string, encryptionKey []byte) *BloomClient {
@@ -80,6 +85,7 @@ func (c *BloomClient) Initialize() error {
 		}
 		return fmt.Errorf("failed to load credentials: %w", err)
 	}
+	c.SetToken(c.credentials.Token)
 	c.startWebSocket(context.Background(), c.wsURL)
 	return nil
 }

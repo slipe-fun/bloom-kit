@@ -79,6 +79,59 @@ func (c *BloomClient) loadMessages(chatID, beforeID int) ([]domain.DecryptedMess
 	return result, nil
 }
 
+func (c *BloomClient) sendMessage(chatID int, replyToID *int, content string) (*domain.DecryptedMessageWithReply, error) {
+	chat, err := c.database.GetChat(chatID)
+	if err != nil {
+		return nil, err
+	}
+
+	recipient := getChatOtherMember(&domain.Chat{
+		RawChat: chat.RawChat,
+	}, c.credentials.UserID)
+	recipientIdentity := mappers.ConvertUserToIdentity(recipient)
+
+	user := getChatOtherMember(&domain.Chat{
+		RawChat: chat.RawChat,
+	}, recipient.ID)
+	userIdentity := mappers.ConvertUserToIdentity(user)
+
+	message, err := c.messageManager.Send(context.Background(), content, chatID, replyToID, chat.ChatKey, chat.SyncKey, userIdentity, recipientIdentity)
+	if err != nil {
+		return nil, err
+	}
+
+	var replyTo *domain.DecryptedMessage
+	if message.ReplyToMessage != nil {
+		replyTo = &domain.DecryptedMessage{
+			ID:        message.ReplyToMessage.ID,
+			Content:   string(message.ReplyToMessage.Content),
+			AuthorID:  message.ReplyToMessage.AuthorID,
+			Timestamp: message.ReplyToMessage.Timestamp,
+			Seen:      message.ReplyToMessage.Seen,
+		}
+	}
+
+	return &domain.DecryptedMessageWithReply{
+		DecryptedMessage: domain.DecryptedMessage{
+			ID:        message.ID,
+			Content:   content,
+			AuthorID:  userIdentity.ID,
+			Timestamp: message.Timestamp,
+			Seen:      message.Seen,
+		},
+		ReplyTo: replyTo,
+	}, nil
+}
+
+func (c *BloomClient) SendMessage(chatID int, replyToID *int, content string) ([]byte, error) {
+	message, err := c.sendMessage(chatID, replyToID, content)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(message)
+}
+
 func (c *BloomClient) LoadMessages(chatID, beforeID int) ([]byte, error) {
 	messages, err := c.loadMessages(chatID, beforeID)
 	if err != nil {
@@ -86,4 +139,16 @@ func (c *BloomClient) LoadMessages(chatID, beforeID int) ([]byte, error) {
 	}
 
 	return json.Marshal(messages)
+}
+
+func (c *BloomClient) RegisterMessagesListener(listener MessagesListener) {
+	c.listenerMu.Lock()
+	c.messagesListener = listener
+	c.listenerMu.Unlock()
+}
+
+func (c *BloomClient) UnregisterMessagesListener() {
+	c.listenerMu.Lock()
+	c.messagesListener = nil
+	c.listenerMu.Unlock()
 }
