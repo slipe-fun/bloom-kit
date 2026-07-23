@@ -98,7 +98,7 @@ func main() {
 
 	// fmt.Println()
 
-	// beginLoginResponse, err := authManager.BeginLogin(ctx, registerResponse.User.ID)
+	// beginLoginResponse, err := authManager.BeginLogin(ctx, authLookupID)
 	// if err != nil {
 	// 	panic(err)
 	// }

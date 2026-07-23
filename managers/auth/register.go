@@ -14,6 +14,8 @@ func (a *AuthManager) Register(
 	secretKeys *identity.SecretKeys,
 	masterKey, recoveryKey []byte,
 ) (*domain.RegisterResponse, error) {
+	authLookupID := identity.DeriveAuthLookupID(recoveryKey)
+
 	encryptedSecretKeys, err := identity.EncryptSecretKeys(user, secretKeys, masterKey)
 	if err != nil {
 		return nil, err
@@ -24,7 +26,7 @@ func (a *AuthManager) Register(
 		return nil, err
 	}
 
-	registerRequestBody := auth.NewKeysRequest(user, encryptedSecretKeys, encryptedMasterKey)
+	registerRequestBody := auth.NewKeysRequest(user, authLookupID, encryptedSecretKeys, encryptedMasterKey)
 
 	return a.authClient.Register(ctx, registerRequestBody)
 }

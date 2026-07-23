@@ -76,13 +76,15 @@ func (c *BloomClient) Register() (*RegisterResult, error) {
 	}, nil
 }
 
-func (c *BloomClient) Login(userID, recoveryKey string) (*LoginResult, error) {
-	beginLoginResponse, err := c.authManager.BeginLogin(context.Background(), userID)
+func (c *BloomClient) Login(recoveryKey string) (*LoginResult, error) {
+	recoveryKeyBytes, err := hex.DecodeString(recoveryKey)
 	if err != nil {
 		return nil, err
 	}
 
-	recoveryKeyBytes, err := hex.DecodeString(recoveryKey)
+	authLookupID := identity.DeriveAuthLookupID(recoveryKeyBytes)
+
+	beginLoginResponse, err := c.authManager.BeginLogin(context.Background(), authLookupID)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +105,7 @@ func (c *BloomClient) Login(userID, recoveryKey string) (*LoginResult, error) {
 	}
 
 	userIdentity := &identity.User{
-		ID: userID,
+		ID: beginLoginResponse.UserID,
 		PublicKeys: identity.PublicKeys{
 			MlKem768: decodedMlKem768,
 			X448:     decodedX448,

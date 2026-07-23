@@ -24,8 +24,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
-github.com/slipe-fun/skid-v4 v0.0.0-20260621103234-7521338c1cc0 h1:1yRl8RJo6Y8wbsr686cf3WgnAn0emjsCYFxdUAaWqBE=
-github.com/slipe-fun/skid-v4 v0.0.0-20260621103234-7521338c1cc0/go.mod h1:aeOEZ9nIxTFJiuahIb/4foVygaqqv0gGTH4/CAhBGto=
+github.com/slipe-fun/skid-v4 v0.0.0-20260723194116-5844d0184828 h1:dFW2ankIHvFMHT2Dj9JuAnafpP9ccEGJHGzwYhD0mdc=
+github.com/slipe-fun/skid-v4 v0.0.0-20260723194116-5844d0184828/go.mod h1:aeOEZ9nIxTFJiuahIb/4foVygaqqv0gGTH4/CAhBGto=
 github.com/stretchr/testify v1.6.1 h1:hDPOHmpOpP40lSULcqw7IrRb/u7w6RpDC9399XyoNd0=
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/tink-crypto/tink-go/v2 v2.7.0 h1:k7QnUXJ1cRDpvoy/5l1FimZqMAArRff8vjUqzi5N04o=

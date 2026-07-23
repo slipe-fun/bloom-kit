@@ -11,10 +11,12 @@ import (
 
 func NewKeysRequest(
 	user *identity.User,
+	authLookupID string,
 	encryptedSecretKeys *identity.EncryptedSecretKeys,
 	encryptedMasterKey *identity.EncryptedMasterKey,
 ) *domain.KeysRequest {
 	return &domain.KeysRequest{
+		AuthLookupID: authLookupID,
 		IdentityKeys: domain.IdentityKeysRequest{
 			EncryptedSecretKeys: domain.EncryptedKey{
 				Ciphertext: base64.StdEncoding.EncodeToString(encryptedSecretKeys.Ciphertext),

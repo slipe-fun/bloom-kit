@@ -8,12 +8,12 @@ import (
 	"github.com/slipe-fun/bloom-kit/domain"
 )
 
-func (a *AuthClient) BeginLogin(ctx context.Context, userID string) (*domain.BeginLoginResponse, error) {
+func (a *AuthClient) BeginLogin(ctx context.Context, authLookupID string) (*domain.BeginLoginResponse, error) {
 	return api.Send[struct{}, domain.BeginLoginResponse](
 		ctx,
 		a.client,
 		"GET",
-		fmt.Sprintf("/auth/login/begin/%s", userID),
+		fmt.Sprintf("/auth/login/begin/%s", authLookupID),
 		nil,
 	)
 }

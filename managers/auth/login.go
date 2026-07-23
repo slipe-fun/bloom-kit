@@ -8,8 +8,8 @@ import (
 	"github.com/slipe-fun/skid-v4/pkg/identity"
 )
 
-func (a *AuthManager) BeginLogin(ctx context.Context, userID string) (*domain.BeginLoginResponse, error) {
-	return a.authClient.BeginLogin(ctx, userID)
+func (a *AuthManager) BeginLogin(ctx context.Context, authLookupID string) (*domain.BeginLoginResponse, error) {
+	return a.authClient.BeginLogin(ctx, authLookupID)
 }
 
 func (a *AuthManager) FinishLogin(
