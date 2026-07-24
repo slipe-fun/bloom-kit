@@ -49,6 +49,20 @@ func main() {
 		client: client,
 	})
 
+	roomID, fingerprint, err := client.StartExchangeSession("push")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(roomID, fingerprint)
+
+	recoveryKey, err := client.Exchange("push", roomID, fingerprint)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(recoveryKey)
+
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
