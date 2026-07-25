@@ -18,7 +18,6 @@ type MessagesHandler struct {
 
 func (h *MessagesHandler) OnNewMessage(messageJSON []byte) {
 	fmt.Println("New message:", string(messageJSON))
-	h.client.SendMessage(84, nil, "hii")
 }
 
 func main() {
@@ -28,10 +27,12 @@ func main() {
 	// 	panic(err)
 	// }
 
-	client := client.NewClient("https://api.bloomapp.pw/", "wss://api.bloomapp.pw/ws", "./storage", key)
+	client := client.NewClient("http://localhost:8080/", "ws://localhost:8080/ws", "./storage", key)
 	if err := client.Initialize(); err != nil {
 		panic(err)
 	}
+
+	client.Register()
 
 	userJSON, err := client.GetMe()
 	if err != nil {
@@ -49,19 +50,19 @@ func main() {
 		client: client,
 	})
 
-	roomID, fingerprint, err := client.StartExchangeSession("push")
-	if err != nil {
-		panic(err)
-	}
+	// roomID, fingerprint, err := client.StartExchangeSession("push")
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	fmt.Println(roomID, fingerprint)
+	// fmt.Println(roomID, fingerprint)
 
-	recoveryKey, err := client.Exchange("push", roomID, fingerprint)
-	if err != nil {
-		panic(err)
-	}
+	// recoveryKey, err := client.Exchange("push", roomID, fingerprint)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	fmt.Println(recoveryKey)
+	// fmt.Println(recoveryKey)
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
