@@ -52,7 +52,7 @@ func main() {
 
 	fmt.Println("Sender user ID:", registerResponse.User.ID)
 
-	receiver, err := userManager.Get(ctx, "6gjEdXzyjFv178")
+	receiver, err := userManager.Get(ctx, "E7o3DeDyreM3W3")
 	if err != nil {
 		panic(err)
 	}

@@ -68,6 +68,7 @@ func (c *BloomClient) Register() (*RegisterResult, error) {
 	}
 
 	c.apiClient.SetToken(registerResponse.Token)
+	c.startWebSocket(context.Background(), c.wsURL)
 
 	return &RegisterResult{
 		Token:       registerResponse.Token,
@@ -147,6 +148,7 @@ func (c *BloomClient) Login(recoveryKey string) (*LoginResult, error) {
 	}
 
 	c.apiClient.SetToken(finishLoginResult.Token)
+	c.startWebSocket(context.Background(), c.wsURL)
 
 	return &LoginResult{
 		Token:    finishLoginResult.Token,

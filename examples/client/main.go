@@ -27,7 +27,7 @@ func main() {
 	// 	panic(err)
 	// }
 
-	client := client.NewClient("http://localhost:8080/", "ws://localhost:8080/ws", "./storage", key)
+	client := client.NewClient("https://api.bloomapp.pw/", "wss://api.bloomapp.pw/ws", "./storage", key)
 	if err := client.Initialize(); err != nil {
 		panic(err)
 	}
