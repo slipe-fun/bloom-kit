@@ -18,7 +18,6 @@ static inline void call_messages_callback(messages_callback_t cb, const char* js
     }
 }
 */
-
 import "C"
 import (
 	"encoding/json"
