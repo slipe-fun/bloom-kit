@@ -4,9 +4,16 @@ package main
 #include <stdlib.h>
 
 typedef void (*chats_callback_t)(const char* json_data);
+typedef void (*user_callback_t)(const char* json_data);
 typedef void (*messages_callback_t)(const char* json_data);
 
 static inline void call_chats_callback(chats_callback_t cb, const char* json_data) {
+    if (cb != NULL) {
+        cb(json_data);
+    }
+}
+
+static inline void call_user_callback(user_callback_t cb, const char* json_data) {
     if (cb != NULL) {
         cb(json_data);
     }
@@ -340,6 +347,30 @@ func RegisterMessagesCallback(cb C.messages_callback_t) {
 func UnregisterMessagesCallback() {
 	if globalClient != nil {
 		globalClient.UnregisterMessagesListener()
+	}
+}
+
+type cgoUserListener struct {
+	callback C.user_callback_t
+}
+
+func (l *cgoUserListener) OnUserUpdated(userJSON []byte) {
+	cStr := C.CString(string(userJSON))
+	defer C.free(unsafe.Pointer(cStr))
+	C.call_user_callback(l.callback, cStr)
+}
+
+//export RegisterUserCallback
+func RegisterUserCallback(cb C.user_callback_t) {
+	if globalClient != nil {
+		globalClient.RegisterUserListener(&cgoUserListener{callback: cb})
+	}
+}
+
+//export UnregisterUserCallback
+func UnregisterUserCallback() {
+	if globalClient != nil {
+		globalClient.UnregisterUserListener()
 	}
 }
 
