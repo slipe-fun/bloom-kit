@@ -5,6 +5,7 @@ import (
 
 	"github.com/slipe-fun/bloom-kit/domain"
 	"github.com/slipe-fun/skid-v4/pkg/identity"
+	"github.com/slipe-fun/skid-v4/pkg/messages"
 )
 
 func MapPublicKeys(mlKem768, x448, ed448 []byte) *domain.PublicKeys {
@@ -68,5 +69,13 @@ func ConvertUserToIdentity(user *domain.User) *identity.User {
 			X448:     publicKeys.X448,
 			Ed448:    publicKeys.Ed448,
 		},
+	}
+}
+
+func MapEncryptedGroupKey(encryptedGroupKey *messages.EncryptedMessage) *domain.EncryptedGroupKey {
+	return &domain.EncryptedGroupKey{
+		Ciphertext: base64.StdEncoding.EncodeToString(encryptedGroupKey.Ciphertext),
+		Nonce:      base64.StdEncoding.EncodeToString(encryptedGroupKey.Nonce),
+		Salt:       base64.StdEncoding.EncodeToString(encryptedGroupKey.Salt),
 	}
 }

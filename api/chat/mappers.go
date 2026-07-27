@@ -9,6 +9,14 @@ import (
 func NewCreateChatRequest(recipientID string, handshake *identity.HandshakePayload) *domain.CreateChatRequest {
 	return &domain.CreateChatRequest{
 		Recipient: recipientID,
-		Handshake: *mappers.MapHandshake(handshake),
+		Handshake: mappers.MapHandshake(handshake),
+	}
+}
+
+func NewCreateGroupRequest(title string, members []domain.GroupMemberRequest) *domain.CreateChatRequest {
+	return &domain.CreateChatRequest{
+		Type:    "group",
+		Title:   title,
+		Members: members,
 	}
 }

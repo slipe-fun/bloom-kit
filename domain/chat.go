@@ -11,6 +11,19 @@ type Handshake struct {
 	EncryptedSyncKey    EncryptedSyncKey `json:"encrypted_sync_key"`
 }
 
+type EncryptedGroupKey struct {
+	Ciphertext string `json:"ciphertext"`
+	Nonce      string `json:"nonce"`
+	Salt       string `json:"salt"`
+}
+
+type GroupMember struct {
+	MemberID          string `json:"recipient_id"`
+	InvitedByID       string `json:"invited_by_id"`
+	Handshake         `json:"handshake"`
+	EncryptedGroupKey `json:"encrypted_group_key"`
+}
+
 type RawChat struct {
 	ID        int        `json:"id"`
 	Members   []User     `json:"members"`
@@ -33,7 +46,18 @@ type ChatWithKeys struct {
 	LastReadMessage *Message `json:"last_read_message,omitempty"`
 }
 
+type GroupMemberRequest struct {
+	MemberID          string            `json:"member_id"`
+	Handshake         Handshake         `json:"handshake"`
+	EncryptedGroupKey EncryptedGroupKey `json:"encrypted_group_key"`
+}
+
 type CreateChatRequest struct {
-	Recipient string    `json:"recipient"`
-	Handshake Handshake `json:"handshake"`
+	Type string `json:"type"`
+
+	Recipient string     `json:"recipient,omitempty"`
+	Handshake *Handshake `json:"handshake,omitempty"`
+
+	Title   string               `json:"title,omitempty"`
+	Members []GroupMemberRequest `json:"members,omitempty"`
 }

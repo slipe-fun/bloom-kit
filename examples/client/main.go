@@ -32,7 +32,8 @@ func main() {
 		panic(err)
 	}
 
-	client.Register()
+	a, err := client.Register()
+	fmt.Println(a.Token)
 
 	userJSON, err := client.GetMe()
 	if err != nil {
