@@ -140,6 +140,18 @@ func GetMe() *C.char {
 	return C.CString(string(res))
 }
 
+//export GetOrFetchMe
+func GetOrFetchMe() *C.char {
+	if globalClient == nil {
+		return C.CString(`{"error": "client not initialized"}`)
+	}
+	res, err := globalClient.GetOrFetchMe()
+	if err != nil {
+		return makeErrorJSON(err)
+	}
+	return C.CString(string(res))
+}
+
 //export SearchUsers
 func SearchUsers(query *C.char) *C.char {
 	if globalClient == nil {
