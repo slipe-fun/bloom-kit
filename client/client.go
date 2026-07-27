@@ -27,6 +27,10 @@ type ChatsListener interface {
 	OnChatsUpdated(chatsJSON []byte)
 }
 
+type UserListener interface {
+	OnUserUpdated(userJSON []byte)
+}
+
 type MessagesListener interface {
 	OnNewMessage(messageJSON []byte)
 }
@@ -51,6 +55,7 @@ type BloomClient struct {
 
 	chatsListener    ChatsListener
 	messagesListener MessagesListener
+	userListener     UserListener
 	listenerMu       sync.RWMutex
 	syncCancel       context.CancelFunc
 	syncMu           sync.Mutex

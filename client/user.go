@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 
@@ -33,6 +34,12 @@ func (c *BloomClient) GetMe() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if !bytes.Equal(userBytes, c.credentials.UserJSON) {
+		c.UpdateCredentialsUserJSON(userBytes)
+	}
+
+	c.updateUser(userBytes)
 
 	return userBytes, nil
 }
@@ -87,7 +94,14 @@ func (c *BloomClient) EditUser(req *EditRequest) ([]byte, error) {
 		return nil, err
 	}
 
-	return json.Marshal(editedUser.User)
+	editedUserBytes, err := json.Marshal(editedUser.User)
+	if err != nil {
+		return nil, err
+	}
+
+	c.updateUser(editedUserBytes)
+
+	return editedUserBytes, nil
 }
 
 func (c *BloomClient) GetUser(userID string) ([]byte, error) {
@@ -127,4 +141,46 @@ func (c *BloomClient) getOrFetchUser(userID string) (*domain.User, error) {
 	}
 
 	return user, nil
+}
+
+func (c *BloomClient) GetOrFetchMe() ([]byte, error) {
+	user, err := c.getOrFetchUser(c.credentials.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	userJSON, err := json.Marshal(user)
+	if err != nil {
+		return nil, err
+	}
+
+	if !bytes.Equal(userJSON, c.credentials.UserJSON) {
+		c.UpdateCredentialsUserJSON(userJSON)
+	}
+
+	c.updateUser(userJSON)
+
+	return userJSON, nil
+}
+
+func (c *BloomClient) updateUser(userJSON []byte) {
+	c.listenerMu.RLock()
+	userListener := c.userListener
+	c.listenerMu.RUnlock()
+
+	if userListener != nil {
+		userListener.OnUserUpdated(userJSON)
+	}
+}
+
+func (c *BloomClient) RegisterUserListener(listener UserListener) {
+	c.listenerMu.Lock()
+	c.userListener = listener
+	c.listenerMu.Unlock()
+}
+
+func (c *BloomClient) UnregisterUserListener() {
+	c.listenerMu.Lock()
+	c.userListener = nil
+	c.listenerMu.Unlock()
 }

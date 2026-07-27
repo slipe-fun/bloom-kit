@@ -62,6 +62,8 @@ func (c *BloomClient) Register() (*RegisterResult, error) {
 	c.apiClient.SetToken(registerResponse.Token)
 	c.startWebSocket(context.Background(), c.wsURL)
 
+	c.updateUser(userBytes)
+
 	return &RegisterResult{
 		UserJSON:       userBytes,
 		RawRecoveryKey: hex.EncodeToString(rawRecoveryKey),
@@ -144,6 +146,8 @@ func (c *BloomClient) Login(rawRecoveryKey string) (*LoginResult, error) {
 	c.apiClient.SetToken(finishLoginResult.Token)
 	c.startWebSocket(context.Background(), c.wsURL)
 
+	c.updateUser(userBytes)
+
 	return &LoginResult{
 		UserJSON: userBytes,
 	}, nil
@@ -156,6 +160,8 @@ func (c *BloomClient) RestoreSession() (*LoginResult, error) {
 	}
 
 	c.apiClient.SetToken(creds.Token)
+
+	c.updateUser(creds.UserJSON)
 
 	return &LoginResult{
 		UserJSON: creds.UserJSON,

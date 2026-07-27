@@ -79,12 +79,29 @@ func (c *BloomClient) loadCredentials() (*domain.SavedCredentials, error) {
 	return &creds, nil
 }
 
+func (c *BloomClient) UpdateCredentialsUserJSON(userJSON []byte) error {
+	creds, err := c.loadCredentials()
+	if err != nil {
+		return err
+	}
+
+	creds.UserJSON = userJSON
+
+	if err := c.saveCredentials(creds); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (c *BloomClient) ClearCredentials() {
 	filePath := filepath.Join(c.storagePath, "session.dat")
 
 	_ = os.Remove(filePath)
 
 	c.credentials = nil
+
+	c.updateUser(nil)
 
 	c.apiClient.SetToken("")
 }
