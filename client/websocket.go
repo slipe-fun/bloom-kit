@@ -18,9 +18,14 @@ type WsEvent struct {
 }
 
 type ChatNewEvent struct {
-	Type   string `json:"type"`
-	UserID string `json:"user_id"`
 	domain.Chat
+	Type              string                    `json:"type"`
+	ChatType          string                    `json:"chat_type"`
+	UserID            string                    `json:"user_id"`
+	Role              *string                   `json:"role,omitempty"`
+	InvitedBy         *domain.User              `json:"invited_by,omitempty"`
+	Handshake         *domain.Handshake         `json:"handshake,omitempty"`
+	EncryptedGroupKey *domain.EncryptedGroupKey `json:"encrypted_group_key,omitempty"`
 }
 
 type MessageNewEvent struct {
@@ -131,44 +136,56 @@ func (c *BloomClient) handleNewChatEvent(chatEvent *ChatNewEvent) {
 		return
 	}
 
-	recipient := getChatOtherMember(&chat, c.credentials.UserID)
-	if recipient == nil {
+	var me *domain.User
+	if err = json.Unmarshal(c.credentials.UserJSON, &me); err != nil {
 		return
 	}
 
-	me := getChatOtherMember(&chat, recipient.ID)
-	if recipient == nil {
-		return
-	}
-
-	recipientIdentity := mappers.ConvertUserToIdentity(recipient)
 	userIdentity := mappers.ConvertUserToIdentity(me)
-
 	secretKeys, err := mappers.UnmapSecretKeys(creds.SecretKeys)
 	if err != nil {
 		return
 	}
 	defer secretKeys.Wipe()
 
-	handshakePayload, err := mappers.DecodeHandshake(chat.Handshake)
-	if err != nil {
-		return
-	}
+	switch chatEvent.ChatType {
+	case "private":
+		recipient := getChatOtherMember(&chat, c.credentials.UserID)
+		if recipient == nil {
+			return
+		}
 
-	chatKey, syncKey, err := identity.FinalizeKeyExchange(handshakePayload, userIdentity, secretKeys, recipientIdentity, nil, true)
-	if err != nil {
-		chatKey, syncKey, err = identity.FinalizeKeyExchange(handshakePayload, recipientIdentity, nil, userIdentity, secretKeys, false)
+		recipientIdentity := mappers.ConvertUserToIdentity(recipient)
+
+		handshakePayload, err := mappers.DecodeHandshake(chat.Handshake)
 		if err != nil {
 			return
 		}
-	}
 
-	err = c.database.SaveChat(chat, chatKey, syncKey)
-	if err != nil {
-		return
-	}
+		chatKey, syncKey, err := identity.FinalizeKeyExchange(handshakePayload, userIdentity, secretKeys, recipientIdentity, nil, true)
+		if err != nil {
+			chatKey, syncKey, err = identity.FinalizeKeyExchange(handshakePayload, recipientIdentity, nil, userIdentity, secretKeys, false)
+			if err != nil {
+				return
+			}
+		}
 
-	_ = c.database.SaveUser(recipient)
+		err = c.database.SaveChat(chat, chatKey, syncKey)
+		if err != nil {
+			return
+		}
+
+		_ = c.database.SaveUser(recipient)
+	case "group":
+		// recipientIdentity := mappers.ConvertUserToIdentity(chatEvent.InvitedBy)
+
+		// handshakePayload, err := mappers.DecodeHandshake(chatEvent.Handshake)
+		// if err != nil {
+		// 	return
+		// }
+
+		// chatKey, syncKey, err := identity.FinalizeKeyExchange(handshakePayload, userIdentity, secretKeys, recipientIdentity, nil, true)
+	}
 
 	c.notifyChatsUpdated()
 }

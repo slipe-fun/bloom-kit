@@ -26,8 +26,10 @@ type GroupMember struct {
 
 type RawChat struct {
 	ID        int        `json:"id"`
-	Members   []User     `json:"members"`
-	Handshake *Handshake `json:"handshake"`
+	Members   *[]User    `json:"members,omitempty"`
+	Handshake *Handshake `json:"handshake,omitempty"`
+	Title     string     `json:"title,omitempty"`
+	Type      string     `json:"type"`
 }
 
 type Chat struct {

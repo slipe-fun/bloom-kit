@@ -104,9 +104,9 @@ func (c *BloomClient) StopChatsSync() {
 }
 
 func getChatOtherMember(chat *domain.Chat, memberID string) *domain.User {
-	for i, member := range chat.Members {
+	for _, member := range *chat.Members {
 		if member.ID != memberID {
-			return &chat.Members[i]
+			return &member
 		}
 	}
 	return nil
@@ -179,7 +179,7 @@ func (c *BloomClient) createChat(receiverUser *CreateChatRequest) (*ChatResponse
 		Recipient: recipientJSON,
 	}
 
-	err = c.database.SaveUsers(createdChat.Members)
+	err = c.database.SaveUsers(*createdChat.Members)
 	if err != nil {
 		return nil, err
 	}
