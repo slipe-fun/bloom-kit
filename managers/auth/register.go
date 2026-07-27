@@ -13,9 +13,8 @@ func (a *AuthManager) Register(
 	user *identity.User,
 	secretKeys *identity.SecretKeys,
 	masterKey, recoveryKey []byte,
+	authLookupID string,
 ) (*domain.RegisterResponse, error) {
-	authLookupID := identity.DeriveAuthLookupID(recoveryKey)
-
 	encryptedSecretKeys, err := identity.EncryptSecretKeys(user, secretKeys, masterKey)
 	if err != nil {
 		return nil, err

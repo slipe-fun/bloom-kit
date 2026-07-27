@@ -9,31 +9,25 @@ import (
 	"github.com/slipe-fun/bloom-kit/domain"
 	"github.com/slipe-fun/bloom-kit/mappers"
 	"github.com/slipe-fun/skid-v4/pkg/identity"
-	"github.com/tink-crypto/tink-go/v2/subtle/random"
 )
 
 type RegisterResult struct {
-	Token       string
-	UserJSON    []byte
-	RecoveryKey string
+	UserJSON       []byte
+	RawRecoveryKey string
 }
 
 type LoginResult struct {
-	Token    string
 	UserJSON []byte
 }
 
 func (c *BloomClient) Register() (*RegisterResult, error) {
-	userIdentity, secret, err := identity.GenerateIdentity()
+	userIdentity, secret, rawRecoveryKey, recoveryKey, masterKey, lookupID, err := identity.GenerateIdentity()
 	if err != nil {
 		return nil, err
 	}
 	defer secret.Wipe()
 
-	masterKey := random.GetRandomBytes(32)
-	recoveryKey := random.GetRandomBytes(32)
-
-	registerResponse, err := c.authManager.Register(context.Background(), userIdentity, secret, masterKey, recoveryKey)
+	registerResponse, err := c.authManager.Register(context.Background(), userIdentity, secret, masterKey, recoveryKey, lookupID)
 	if err != nil {
 		panic(err)
 	}
@@ -47,8 +41,6 @@ func (c *BloomClient) Register() (*RegisterResult, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	encodedRecoveryKey := hex.EncodeToString(recoveryKey)
 
 	err = c.saveCredentials(&domain.SavedCredentials{
 		UserID:      registerResponse.User.ID,
@@ -71,21 +63,23 @@ func (c *BloomClient) Register() (*RegisterResult, error) {
 	c.startWebSocket(context.Background(), c.wsURL)
 
 	return &RegisterResult{
-		Token:       registerResponse.Token,
-		UserJSON:    userBytes,
-		RecoveryKey: encodedRecoveryKey,
+		UserJSON:       userBytes,
+		RawRecoveryKey: hex.EncodeToString(rawRecoveryKey),
 	}, nil
 }
 
-func (c *BloomClient) Login(recoveryKey string) (*LoginResult, error) {
-	recoveryKeyBytes, err := hex.DecodeString(recoveryKey)
+func (c *BloomClient) Login(rawRecoveryKey string) (*LoginResult, error) {
+	rawRecoveryKeyBytes, err := hex.DecodeString(rawRecoveryKey)
 	if err != nil {
 		return nil, err
 	}
 
-	authLookupID := identity.DeriveAuthLookupID(recoveryKeyBytes)
+	recoveryKeyBytes, lookupID, err := identity.NewRecoveryKey(rawRecoveryKeyBytes)
+	if err != nil {
+		return nil, err
+	}
 
-	beginLoginResponse, err := c.authManager.BeginLogin(context.Background(), authLookupID)
+	beginLoginResponse, err := c.authManager.BeginLogin(context.Background(), lookupID)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +145,6 @@ func (c *BloomClient) Login(recoveryKey string) (*LoginResult, error) {
 	c.startWebSocket(context.Background(), c.wsURL)
 
 	return &LoginResult{
-		Token:    finishLoginResult.Token,
 		UserJSON: userBytes,
 	}, nil
 }
@@ -165,7 +158,6 @@ func (c *BloomClient) RestoreSession() (*LoginResult, error) {
 	c.apiClient.SetToken(creds.Token)
 
 	return &LoginResult{
-		Token:    creds.Token,
 		UserJSON: creds.UserJSON,
 	}, nil
 }

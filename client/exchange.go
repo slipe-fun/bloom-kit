@@ -60,7 +60,7 @@ func (c *BloomClient) SendExchangeEvent(eventType string, conn *websocket.Conn) 
 }
 
 func (c *BloomClient) GenerateExchangeSession(exchangeType string) error {
-	userIdentity, secretKeys, err := identity.GenerateIdentity()
+	userIdentity, secretKeys, _, _, _, _, err := identity.GenerateIdentity()
 	if err != nil {
 		return err
 	}

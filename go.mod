@@ -5,7 +5,7 @@ go 1.26.4
 require (
 	github.com/cloudflare/circl v1.6.3
 	github.com/gorilla/websocket v1.5.3
-	github.com/slipe-fun/skid-v4 v0.0.0-20260723194116-5844d0184828
+	github.com/slipe-fun/skid-v4 v0.0.0-20260727121721-755f1d4f7603
 	github.com/tink-crypto/tink-go/v2 v2.7.0
 	gosqlite.org v0.13.0
 	gosqlite.org/vfs/crypto v0.13.0

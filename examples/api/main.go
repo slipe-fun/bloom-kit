@@ -15,7 +15,6 @@ import (
 	messageManager "github.com/slipe-fun/bloom-kit/managers/message"
 	userManager "github.com/slipe-fun/bloom-kit/managers/user"
 	"github.com/slipe-fun/skid-v4/pkg/identity"
-	"github.com/tink-crypto/tink-go/v2/subtle/random"
 )
 
 func main() {
@@ -34,16 +33,13 @@ func main() {
 
 	ctx := context.Background()
 
-	user, secret, err := identity.GenerateIdentity()
+	user, secret, _, recoveryKey, masterKey, lookupID, err := identity.GenerateIdentity()
 	if err != nil {
 		panic(err)
 	}
 	defer secret.Wipe()
 
-	masterKey := random.GetRandomBytes(32)
-	recoveryKey := random.GetRandomBytes(32)
-
-	registerResponse, err := authManager.Register(ctx, user, secret, masterKey, recoveryKey)
+	registerResponse, err := authManager.Register(ctx, user, secret, masterKey, recoveryKey, lookupID)
 	if err != nil {
 		panic(err)
 	}
