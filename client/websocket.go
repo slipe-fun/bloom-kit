@@ -64,16 +64,15 @@ func (m *MessageNewEvent) UnmarshalJSON(data []byte) error {
 
 func (c *BloomClient) startWebSocket(ctx context.Context, wsURL string) {
 	go func() {
-		backoff := time.Second
+		backoff := 0 * time.Second
 
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			default:
+			case <-time.After(backoff):
 				err := c.connectAndListen(ctx, fmt.Sprintf("%s?token=%s", wsURL, c.credentials.Token))
 				if err != nil {
-					time.Sleep(backoff)
 					if backoff < 30*time.Second {
 						backoff *= 2
 					}
