@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/slipe-fun/bloom-kit/domain"
 )
@@ -20,6 +21,10 @@ type EditRequest struct {
 }
 
 func (c *BloomClient) GetMe() ([]byte, error) {
+	if c.credentials == nil {
+		return nil, errors.New("unauthorized: client is not logged in")
+	}
+
 	user, err := c.userManager.GetMe(context.Background())
 	if err != nil {
 		return nil, err
@@ -64,6 +69,10 @@ func (c *BloomClient) SearchUsers(query string) ([]byte, error) {
 }
 
 func (c *BloomClient) EditUser(req *EditRequest) ([]byte, error) {
+	if c.credentials == nil {
+		return nil, errors.New("unauthorized: client is not logged in")
+	}
+
 	var username *string
 	if req.HasUsername {
 		username = &req.Username
@@ -144,6 +153,10 @@ func (c *BloomClient) getOrFetchUser(userID string) (*domain.User, error) {
 }
 
 func (c *BloomClient) GetOrFetchMe() ([]byte, error) {
+	if c.credentials == nil {
+		return nil, errors.New("unauthorized: client is not logged in")
+	}
+
 	user, err := c.getOrFetchUser(c.credentials.UserID)
 	if err != nil {
 		return nil, err

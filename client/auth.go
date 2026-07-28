@@ -29,7 +29,7 @@ func (c *BloomClient) Register() (*RegisterResult, error) {
 
 	registerResponse, err := c.authManager.Register(context.Background(), userIdentity, secret, masterKey, recoveryKey, lookupID)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	mappedSecretKeys, err := mappers.MapSecretKeys(secret)

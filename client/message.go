@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/slipe-fun/bloom-kit/domain"
 	"github.com/slipe-fun/bloom-kit/managers/message"
@@ -10,6 +11,10 @@ import (
 )
 
 func (c *BloomClient) loadMessages(chatID, beforeID int) ([]domain.DecryptedMessageWithReply, error) {
+	if c.credentials == nil {
+		return nil, errors.New("unauthorized: client is not logged in")
+	}
+
 	messagesFromStorage, err := c.database.GetMessages(chatID, beforeID, 20)
 	if err != nil {
 		return nil, err
@@ -80,6 +85,10 @@ func (c *BloomClient) loadMessages(chatID, beforeID int) ([]domain.DecryptedMess
 }
 
 func (c *BloomClient) sendMessage(chatID int, replyToID *int, content string) (*domain.DecryptedMessageWithReply, error) {
+	if c.credentials == nil {
+		return nil, errors.New("unauthorized: client is not logged in")
+	}
+
 	chat, err := c.database.GetChat(chatID)
 	if err != nil {
 		return nil, err
@@ -124,6 +133,10 @@ func (c *BloomClient) sendMessage(chatID int, replyToID *int, content string) (*
 }
 
 func (c *BloomClient) SendMessage(chatID int, replyToID *int, content string) ([]byte, error) {
+	if c.credentials == nil {
+		return nil, errors.New("unauthorized: client is not logged in")
+	}
+
 	message, err := c.sendMessage(chatID, replyToID, content)
 	if err != nil {
 		return nil, err
@@ -133,6 +146,10 @@ func (c *BloomClient) SendMessage(chatID int, replyToID *int, content string) ([
 }
 
 func (c *BloomClient) LoadMessages(chatID, beforeID int) ([]byte, error) {
+	if c.credentials == nil {
+		return nil, errors.New("unauthorized: client is not logged in")
+	}
+
 	messages, err := c.loadMessages(chatID, beforeID)
 	if err != nil {
 		return nil, err
