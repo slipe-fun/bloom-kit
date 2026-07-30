@@ -190,6 +190,8 @@ func (c *BloomClient) RegisterUserListener(listener UserListener) {
 	c.listenerMu.Lock()
 	c.userListener = listener
 	c.listenerMu.Unlock()
+
+	c.GetOrFetchMe()
 }
 
 func (c *BloomClient) UnregisterUserListener() {

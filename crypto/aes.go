@@ -49,6 +49,10 @@ func Encrypt(key, plaintext, aad []byte) ([]byte, error) {
 }
 
 func Decrypt(key, fullResult, aad []byte) ([]byte, error) {
+	if len(fullResult) < 12 {
+		return nil, errors.New("fullResult too short")
+	}
+
 	ciphertext := make([]byte, len(fullResult)-12)
 	iv := make([]byte, 12)
 	copy(iv, fullResult[:12])

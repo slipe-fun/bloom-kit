@@ -59,6 +59,8 @@ func (c *BloomClient) Register() (*RegisterResult, error) {
 		return nil, err
 	}
 
+	c.database.SaveUser(&registerResponse.User)
+
 	c.apiClient.SetToken(registerResponse.Token)
 	c.startWebSocket(context.Background(), c.wsURL)
 
@@ -142,6 +144,8 @@ func (c *BloomClient) Login(rawRecoveryKey string) (*LoginResult, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	c.database.SaveUser(&finishLoginResult.User)
 
 	c.apiClient.SetToken(finishLoginResult.Token)
 	c.startWebSocket(context.Background(), c.wsURL)
