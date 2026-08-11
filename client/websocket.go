@@ -13,8 +13,8 @@ import (
 )
 
 type WsEvent struct {
-	Type string          `json:"type"`
-	Data json.RawMessage `json:"data"`
+	Type string `json:"type"`
+	Data []byte `json:"data"`
 }
 
 type ChatNewEvent struct {

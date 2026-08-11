@@ -20,8 +20,8 @@ type CreateChatRequest struct {
 
 type ChatResponse struct {
 	domain.Chat
-	Me        json.RawMessage `json:"me"`
-	Recipient json.RawMessage `json:"recipient"`
+	Me        []byte `json:"me"`
+	Recipient []byte `json:"recipient"`
 }
 
 func (c *BloomClient) CreateChat(receiverUser *CreateChatRequest) ([]byte, error) {

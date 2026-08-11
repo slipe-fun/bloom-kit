@@ -12,12 +12,12 @@ import (
 )
 
 type RegisterResult struct {
-	UserJSON       json.RawMessage `json:"user_json"`
-	RawRecoveryKey string          `json:"raw_recovery_key"`
+	UserJSON       []byte `json:"user_json"`
+	RawRecoveryKey string `json:"raw_recovery_key"`
 }
 
 type LoginResult struct {
-	UserJSON json.RawMessage `json:"user_json"`
+	UserJSON []byte `json:"user_json"`
 }
 
 func (c *BloomClient) Register() (*RegisterResult, error) {

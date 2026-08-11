@@ -132,12 +132,17 @@ func (c *BloomClient) sendMessage(chatID int, replyToID *int, content string) (*
 	}, nil
 }
 
-func (c *BloomClient) SendMessage(chatID int, replyToID *int, content string) ([]byte, error) {
+func (c *BloomClient) SendMessage(chatID int, replyToID int, content string) ([]byte, error) {
 	if c.credentials == nil {
 		return nil, errors.New("unauthorized: client is not logged in")
 	}
 
-	message, err := c.sendMessage(chatID, replyToID, content)
+	var replyToPtr *int
+	if replyToID >= 0 {
+		replyToPtr = &replyToID
+	}
+
+	message, err := c.sendMessage(chatID, replyToPtr, content)
 	if err != nil {
 		return nil, err
 	}

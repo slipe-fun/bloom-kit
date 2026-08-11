@@ -16,24 +16,24 @@ import (
 	"github.com/slipe-fun/skid-v4/pkg/messages"
 )
 
-type ExchangeEvent struct {
+type exchangeEvent struct {
 	Type   string `json:"type"`
 	UserID string `json:"user_id"`
 }
 
-type ExchangeInit struct {
+type exchangeInit struct {
 	Type   string `json:"type"`
 	UserID string `json:"user_id"`
 	domain.PublicKeys
 }
 
-type ExchangeHandshake struct {
+type exchangeHandshake struct {
 	Type             string `json:"type"`
 	UserID           string `json:"user_id"`
 	domain.Handshake `json:"handshake"`
 }
 
-type ExchangeMessage struct {
+type exchangeMessage struct {
 	Type       string `json:"type"`
 	UserID     string `json:"user_id"`
 	Ciphertext string `json:"ciphertext"`
@@ -41,8 +41,8 @@ type ExchangeMessage struct {
 	Salt       string `json:"salt"`
 }
 
-func (c *BloomClient) SendExchangeEvent(eventType string, conn *websocket.Conn) error {
-	askForHandshakeMessage := ExchangeEvent{
+func (c *BloomClient) sendExchangeEvent(eventType string, conn *websocket.Conn) error {
+	askForHandshakeMessage := exchangeEvent{
 		Type:   eventType,
 		UserID: c.exchangeUserIdentity.ID,
 	}
@@ -59,7 +59,7 @@ func (c *BloomClient) SendExchangeEvent(eventType string, conn *websocket.Conn) 
 	return nil
 }
 
-func (c *BloomClient) GenerateExchangeSession(exchangeType string) error {
+func (c *BloomClient) generateExchangeSession(exchangeType string) error {
 	userIdentity, secretKeys, _, _, _, _, err := identity.GenerateIdentity()
 	if err != nil {
 		return err
@@ -92,13 +92,13 @@ func (c *BloomClient) GenerateExchangeFingerprint() string {
 	return base64.StdEncoding.EncodeToString(fingerprintBytes[:])
 }
 
-func (c *BloomClient) StartExchangeSession(exchangeType string) (string, string, error) {
+func (c *BloomClient) startExchangeSession(exchangeType string) (string, string, error) {
 	roomID, err := c.exchangeManager.StartSession(context.Background())
 	if err != nil {
 		return "", "", err
 	}
 
-	c.GenerateExchangeSession(exchangeType)
+	c.generateExchangeSession(exchangeType)
 
 	fingerprint := c.GenerateExchangeFingerprint()
 
@@ -118,7 +118,7 @@ func (c *BloomClient) Exchange(exchangeType, roomID, fingerprint string) (string
 	isScanner := c.GenerateExchangeFingerprint() != fingerprint
 
 	if isScanner {
-		c.GenerateExchangeSession(exchangeType)
+		c.generateExchangeSession(exchangeType)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -159,7 +159,7 @@ func (c *BloomClient) Exchange(exchangeType, roomID, fingerprint string) (string
 	}
 	defer conn.Close()
 
-	identityMessage := &ExchangeInit{
+	identityMessage := &exchangeInit{
 		Type:   "exchange.identity",
 		UserID: c.exchangeUserIdentity.ID,
 		PublicKeys: domain.PublicKeys{
@@ -178,7 +178,7 @@ func (c *BloomClient) Exchange(exchangeType, roomID, fingerprint string) (string
 		return "", fmt.Errorf("failed to send: %w", err)
 	}
 
-	_ = c.SendExchangeEvent("exchange.ask_for_identity", conn)
+	_ = c.sendExchangeEvent("exchange.ask_for_identity", conn)
 
 	var (
 		recipientIdentity       *identity.User
@@ -206,7 +206,7 @@ func (c *BloomClient) Exchange(exchangeType, roomID, fingerprint string) (string
 
 			switch event.Type {
 			case "exchange.identity":
-				var event ExchangeInit
+				var event exchangeInit
 				if err := json.Unmarshal(message, &event); err != nil {
 					continue
 				}
@@ -249,7 +249,7 @@ func (c *BloomClient) Exchange(exchangeType, roomID, fingerprint string) (string
 
 					mappedHandshake := mappers.MapHandshake(handshake)
 
-					exchangeHandshakeMessage := ExchangeHandshake{
+					exchangeHandshakeMessage := exchangeHandshake{
 						Type:      "exchange.handshake",
 						UserID:    c.exchangeUserIdentity.ID,
 						Handshake: *mappedHandshake,
@@ -266,13 +266,13 @@ func (c *BloomClient) Exchange(exchangeType, roomID, fingerprint string) (string
 				}
 
 				if exchangeType == "pull" {
-					if err := c.SendExchangeEvent("exchange.ask_for_handshake", conn); err != nil {
+					if err := c.sendExchangeEvent("exchange.ask_for_handshake", conn); err != nil {
 						return "", err
 					}
 				}
 
 			case "exchange.handshake":
-				var event ExchangeHandshake
+				var event exchangeHandshake
 				if err := json.Unmarshal(message, &event); err != nil {
 					continue
 				}
@@ -287,14 +287,14 @@ func (c *BloomClient) Exchange(exchangeType, roomID, fingerprint string) (string
 				}
 
 				if recipientIdentity == nil {
-					if err := c.SendExchangeEvent("exchange.ask_for_identity", conn); err != nil {
+					if err := c.sendExchangeEvent("exchange.ask_for_identity", conn); err != nil {
 						return "", err
 					}
 					continue
 				}
 
 				if exchangeType == "pull" {
-					if err := c.SendExchangeEvent("exchange.ask_for_recovery_key", conn); err != nil {
+					if err := c.sendExchangeEvent("exchange.ask_for_recovery_key", conn); err != nil {
 						return "", err
 					}
 				}
@@ -312,7 +312,7 @@ func (c *BloomClient) Exchange(exchangeType, roomID, fingerprint string) (string
 						return "", err
 					}
 
-					exchangeEncryptedRecoveryKeyMessage := ExchangeMessage{
+					exchangeEncryptedRecoveryKeyMessage := exchangeMessage{
 						Type:       "exchange.recovery_key",
 						Ciphertext: base64.StdEncoding.EncodeToString(message.Ciphertext),
 						Nonce:      base64.StdEncoding.EncodeToString(message.Nonce),
@@ -330,7 +330,7 @@ func (c *BloomClient) Exchange(exchangeType, roomID, fingerprint string) (string
 				}
 
 			case "exchange.recovery_key":
-				var event ExchangeMessage
+				var event exchangeMessage
 				if err := json.Unmarshal(message, &event); err != nil {
 					continue
 				}
@@ -340,14 +340,14 @@ func (c *BloomClient) Exchange(exchangeType, roomID, fingerprint string) (string
 				}
 
 				if recipientIdentity == nil {
-					if err := c.SendExchangeEvent("exchange.ask_for_identity", conn); err != nil {
+					if err := c.sendExchangeEvent("exchange.ask_for_identity", conn); err != nil {
 						return "", err
 					}
 					continue
 				}
 
 				if chatKey == nil || syncKey == nil {
-					if err := c.SendExchangeEvent("exchange.ask_for_handshake", conn); err != nil {
+					if err := c.sendExchangeEvent("exchange.ask_for_handshake", conn); err != nil {
 						return "", err
 					}
 					continue
@@ -377,12 +377,12 @@ func (c *BloomClient) Exchange(exchangeType, roomID, fingerprint string) (string
 					return "", fmt.Errorf("failed to decrypt recovery key: %w", err)
 				}
 
-				_ = c.SendExchangeEvent("exchange.confirm", conn)
+				_ = c.sendExchangeEvent("exchange.confirm", conn)
 
 				return hex.EncodeToString(decryptedMessage.Content), nil
 
 			case "exchange.confirm":
-				var event ExchangeEvent
+				var event exchangeEvent
 				if err := json.Unmarshal(message, &event); err != nil {
 					continue
 				}
@@ -394,7 +394,7 @@ func (c *BloomClient) Exchange(exchangeType, roomID, fingerprint string) (string
 				return hex.EncodeToString(creds.RecoveryKey), nil
 
 			case "exchange.ask_for_identity":
-				var event ExchangeEvent
+				var event exchangeEvent
 				if err := json.Unmarshal(message, &event); err != nil {
 					continue
 				}
@@ -408,7 +408,7 @@ func (c *BloomClient) Exchange(exchangeType, roomID, fingerprint string) (string
 				}
 
 			case "exchange.ask_for_handshake":
-				var event ExchangeEvent
+				var event exchangeEvent
 				if err := json.Unmarshal(message, &event); err != nil {
 					continue
 				}
@@ -419,7 +419,7 @@ func (c *BloomClient) Exchange(exchangeType, roomID, fingerprint string) (string
 
 				if recipientIdentity == nil {
 					pendingHandshakeRequest = true
-					if err := c.SendExchangeEvent("exchange.ask_for_identity", conn); err != nil {
+					if err := c.sendExchangeEvent("exchange.ask_for_identity", conn); err != nil {
 						return "", err
 					}
 					continue
@@ -432,7 +432,7 @@ func (c *BloomClient) Exchange(exchangeType, roomID, fingerprint string) (string
 
 				mappedHandshake := mappers.MapHandshake(handshake)
 
-				exchangeHandshakeMessage := ExchangeHandshake{
+				exchangeHandshakeMessage := exchangeHandshake{
 					Type:      "exchange.handshake",
 					UserID:    c.exchangeUserIdentity.ID,
 					Handshake: *mappedHandshake,
@@ -448,7 +448,7 @@ func (c *BloomClient) Exchange(exchangeType, roomID, fingerprint string) (string
 				}
 
 			case "exchange.ask_for_recovery_key":
-				var event ExchangeEvent
+				var event exchangeEvent
 				if err := json.Unmarshal(message, &event); err != nil {
 					continue
 				}
@@ -458,7 +458,7 @@ func (c *BloomClient) Exchange(exchangeType, roomID, fingerprint string) (string
 				}
 
 				if recipientIdentity == nil {
-					if err := c.SendExchangeEvent("exchange.ask_for_identity", conn); err != nil {
+					if err := c.sendExchangeEvent("exchange.ask_for_identity", conn); err != nil {
 						return "", err
 					}
 					continue
@@ -466,7 +466,7 @@ func (c *BloomClient) Exchange(exchangeType, roomID, fingerprint string) (string
 
 				if chatKey == nil || syncKey == nil {
 					pendingRecoveryKey = true
-					if err := c.SendExchangeEvent("exchange.ask_for_handshake", conn); err != nil {
+					if err := c.sendExchangeEvent("exchange.ask_for_handshake", conn); err != nil {
 						return "", err
 					}
 					continue
@@ -477,7 +477,7 @@ func (c *BloomClient) Exchange(exchangeType, roomID, fingerprint string) (string
 					return "", err
 				}
 
-				exchangeEncryptedRecoveryKeyMessage := ExchangeMessage{
+				exchangeEncryptedRecoveryKeyMessage := exchangeMessage{
 					Type:       "exchange.recovery_key",
 					Ciphertext: base64.StdEncoding.EncodeToString(message.Ciphertext),
 					Nonce:      base64.StdEncoding.EncodeToString(message.Nonce),
