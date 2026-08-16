@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/slipe-fun/bloom-kit/domain"
@@ -452,6 +453,7 @@ func (c *BloomClient) notifyChatsUpdated() {
 
 	localChatsBytes, err := c.GetLocalChats()
 	if err != nil {
+		fmt.Println("error", err)
 		return
 	}
 
@@ -461,6 +463,7 @@ func (c *BloomClient) notifyChatsUpdated() {
 func (c *BloomClient) syncRemoteChats() {
 	_, err := c.getChats()
 	if err != nil {
+		fmt.Println("error", err)
 		return
 	}
 

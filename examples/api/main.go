@@ -14,6 +14,7 @@ import (
 	chatManager "github.com/slipe-fun/bloom-kit/managers/chat"
 	messageManager "github.com/slipe-fun/bloom-kit/managers/message"
 	userManager "github.com/slipe-fun/bloom-kit/managers/user"
+	"github.com/slipe-fun/bloom-kit/mappers"
 	"github.com/slipe-fun/skid-v4/pkg/identity"
 )
 
@@ -48,50 +49,50 @@ func main() {
 
 	fmt.Println("Sender user ID:", registerResponse.User.ID)
 
-	receiver, err := userManager.Get(ctx, "E7o3DeDyreM3W3")
+	receiver, err := userManager.Get(ctx, "5Qo4Yi1fFAPWC")
 	if err != nil {
 		panic(err)
 	}
 
 	fmt.Println("Receiver user ID:", receiver.ID)
 
-	// receiverIdentity := mappers.ConvertUserToIdentity(receiver)
+	receiverIdentity := mappers.ConvertUserToIdentity(receiver)
 
-	users, err := userManager.GetByIDs(ctx, []string{"BrPdQeHtrxAQd7", "785U93QXDWJcmc"})
+	// users, err := userManager.GetByIDs(ctx, []string{"BrPdQeHtrxAQd7", "785U93QXDWJcmc"})
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	// createdChat, groupKey, err := chatManager.CreateGroup(ctx, user, secret, "The best bloom chat", users)
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	// fmt.Println("Created group ID:", createdChat.ID)
+	// fmt.Println("Created group key:", hex.EncodeToString(groupKey))
+
+	createdChat, chatKey, syncKey, err := chatManager.Create(ctx, user, receiverIdentity, secret)
 	if err != nil {
 		panic(err)
 	}
 
-	createdChat, groupKey, err := chatManager.CreateGroup(ctx, user, secret, "The best bloom chat", users)
+	fmt.Println("Created chat ID:", createdChat.ID)
+	fmt.Println("Created chat key:", hex.EncodeToString(chatKey))
+	fmt.Println("Created chat sync key:", hex.EncodeToString(syncKey))
+
+	message, err := messageManager.Send(ctx, "bye chat", createdChat.ID, nil, chatKey, syncKey, user, receiverIdentity)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println("Created group ID:", createdChat.ID)
-	fmt.Println("Created group key:", hex.EncodeToString(groupKey))
+	_, err = messageManager.Send(ctx, "bye chat 2", createdChat.ID, &message.ID, chatKey, syncKey, user, receiverIdentity)
+	if err != nil {
+		panic(err)
+	}
 
-	// createdChat, chatKey, syncKey, err := chatManager.Create(ctx, user, receiverIdentity, secret)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// fmt.Println("Created chat ID:", createdChat.ID)
-	// fmt.Println("Created chat key:", hex.EncodeToString(chatKey))
-	// fmt.Println("Created chat sync key:", hex.EncodeToString(syncKey))
-
-	// message, err := messageManager.Send(ctx, "bye chat", createdChat.ID, nil, chatKey, syncKey, user, receiverIdentity)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// _, err = messageManager.Send(ctx, "bye chat 2", createdChat.ID, &message.ID, chatKey, syncKey, user, receiverIdentity)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// fmt.Println("Created message ID:", message.ID)
-	// fmt.Println("Created message content:", string(message.Content))
-	// fmt.Println("Created message author ID:", message.AuthorID)
+	fmt.Println("Created message ID:", message.ID)
+	fmt.Println("Created message content:", string(message.Content))
+	fmt.Println("Created message author ID:", message.AuthorID)
 
 	// messages, err := messageManager.GetMessages(ctx, createdChat.ID, 0, "after", chatKey, syncKey, user, receiverIdentity)
 	// if err != nil {

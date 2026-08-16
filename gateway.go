@@ -253,7 +253,7 @@ func SendMessage(chatID C.int, replyToID C.int, content *C.char) *C.char {
 		replyPtr = &rID
 	}
 
-	res, err := globalClient.SendMessage(int(chatID), replyPtr, goContent)
+	res, err := globalClient.SendMessage(int(chatID), *replyPtr, goContent)
 	if err != nil {
 		return makeErrorJSON(err)
 	}
@@ -273,23 +273,23 @@ func LoadMessages(chatID C.int, beforeID C.int) *C.char {
 }
 
 //export StartExchangeSession
-func StartExchangeSession(exchangeType *C.char) *C.char {
-	if globalClient == nil {
-		return C.CString(`{"error": "client not initialized"}`)
-	}
-	goExchangeType := C.GoString(exchangeType)
-	roomID, fingerprint, err := globalClient.StartExchangeSession(goExchangeType)
-	if err != nil {
-		return makeErrorJSON(err)
-	}
+// func StartExchangeSession(exchangeType *C.char) *C.char {
+// 	if globalClient == nil {
+// 		return C.CString(`{"error": "client not initialized"}`)
+// 	}
+// 	goExchangeType := C.GoString(exchangeType)
+// 	roomID, fingerprint, err := globalClient.StartExchangeSession(goExchangeType)
+// 	if err != nil {
+// 		return makeErrorJSON(err)
+// 	}
 
-	resp := map[string]string{
-		"room_id":     roomID,
-		"fingerprint": fingerprint,
-	}
-	bytes, _ := json.Marshal(resp)
-	return C.CString(string(bytes))
-}
+// 	resp := map[string]string{
+// 		"room_id":     roomID,
+// 		"fingerprint": fingerprint,
+// 	}
+// 	bytes, _ := json.Marshal(resp)
+// 	return C.CString(string(bytes))
+// }
 
 //export Exchange
 func Exchange(exchangeType, roomID, fingerprint *C.char) *C.char {

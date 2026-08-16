@@ -19,13 +19,13 @@ type RawMessage struct {
 
 func (r *RawMessage) UnmarshalJSON(data []byte) error {
 	type rawMessageHelper struct {
-		ID         int        `json:"id"`
-		Ciphertext string     `json:"ciphertext"`
-		Nonce      string     `json:"nonce"`
-		Salt       string     `json:"salt"`
-		ChatID     int        `json:"chat_id"`
-		Seen       *time.Time `json:"seen,omitempty"`
-		ReplyTo    []byte     `json:"reply_to,omitempty"`
+		ID         int             `json:"id"`
+		Ciphertext string          `json:"ciphertext"`
+		Nonce      string          `json:"nonce"`
+		Salt       string          `json:"salt"`
+		ChatID     int             `json:"chat_id"`
+		Seen       *time.Time      `json:"seen,omitempty"`
+		ReplyTo    json.RawMessage `json:"reply_to,omitempty"`
 	}
 
 	var raw rawMessageHelper
@@ -64,13 +64,13 @@ type RawMessageWithReply struct {
 
 func (r *RawMessageWithReply) UnmarshalJSON(data []byte) error {
 	type rawMessageHelper struct {
-		ID         int        `json:"id"`
-		Ciphertext string     `json:"ciphertext"`
-		Nonce      string     `json:"nonce"`
-		Salt       string     `json:"salt"`
-		ChatID     int        `json:"chat_id"`
-		Seen       *time.Time `json:"seen,omitempty"`
-		ReplyTo    []byte     `json:"reply_to,omitempty"`
+		ID         int             `json:"id"`
+		Ciphertext string          `json:"ciphertext"`
+		Nonce      string          `json:"nonce"`
+		Salt       string          `json:"salt"`
+		ChatID     int             `json:"chat_id"`
+		Seen       *time.Time      `json:"seen,omitempty"`
+		ReplyTo    json.RawMessage `json:"reply_to,omitempty"`
 	}
 
 	var raw rawMessageHelper

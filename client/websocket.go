@@ -130,6 +130,10 @@ func (c *BloomClient) connectAndListen(ctx context.Context, url string) error {
 func (c *BloomClient) handleNewChatEvent(chatEvent *ChatNewEvent) {
 	chat := chatEvent.Chat
 
+	if chat.Handshake == nil && chatEvent.Handshake != nil {
+		chat.Handshake = chatEvent.Handshake
+	}
+
 	creds, err := c.loadCredentials()
 	if err != nil {
 		return
