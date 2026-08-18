@@ -49,7 +49,8 @@ func NewDatabase(encryptionKey []byte, storagePath string) (*Database, error) {
 	    members TEXT NOT NULL,
 	    handshake TEXT NOT NULL,
 	    chat_key TEXT NOT NULL,
-	    sync_key TEXT NOT NULL
+	    sync_key TEXT NOT NULL,
+		created_at DATETIME NOT NULL
 	);
 
 	CREATE TABLE IF NOT EXISTS messages (
@@ -60,6 +61,7 @@ func NewDatabase(encryptionKey []byte, storagePath string) (*Database, error) {
 	    reply_to INTEGER,
 	    nonce TEXT NOT NULL,
 	    content TEXT NOT NULL,
+		created_at DATETIME NOT NULL
 
 	    FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE,
 	    FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -77,6 +79,9 @@ func NewDatabase(encryptionKey []byte, storagePath string) (*Database, error) {
 
 	CREATE INDEX IF NOT EXISTS idx_messages_seen
 	    ON messages(seen);
+
+	CREATE INDEX IF NOT EXISTS idx_messages_created_at
+    	ON messages(created_at);
 	`
 
 	if _, err := db.Exec(schema); err != nil {

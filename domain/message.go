@@ -104,6 +104,7 @@ func (r *RawMessageWithReply) UnmarshalJSON(data []byte) error {
 type MessageWithDecryptedData struct {
 	RawMessageWithReply
 	messages.Message
+	CreatedAt time.Time
 }
 
 type Message struct {

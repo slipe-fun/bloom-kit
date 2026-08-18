@@ -5,28 +5,51 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/slipe-fun/bloom-kit/domain"
 )
 
-func (d *Database) SaveMessage(message *domain.Message) error {
+func messageCreatedAt(message *domain.Message) time.Time {
+	if !message.CreatedAt.IsZero() {
+		return message.CreatedAt.UTC()
+	}
+
+	if message.Timestamp != 0 {
+		return time.Unix(message.Timestamp, 0).UTC()
+	}
+
+	return time.Now().UTC()
+}
+
+func saveMessageTx(tx *sql.Tx, message *domain.Message) error {
 	if message.ReplyToMessage != nil {
 		message.ReplyToMessage.ChatID = message.ChatID
 
-		_, err := d.db.Exec(`
+		replyCreatedAt := message.ReplyToMessage.CreatedAt
+		if replyCreatedAt.IsZero() && message.ReplyToMessage.Timestamp != 0 {
+			replyCreatedAt = time.Unix(
+				message.ReplyToMessage.Timestamp,
+				0,
+			).UTC()
+		}
+
+		_, err := tx.Exec(`
 			INSERT INTO messages (
 				id,
 				chat_id,
 				author_id,
+				created_at,
 				seen,
 				reply_to,
 				nonce,
 				content
 			)
-			VALUES (?, ?, ?, ?, ?, ?, ?)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(id) DO UPDATE SET
 				chat_id = excluded.chat_id,
 				author_id = excluded.author_id,
+				created_at = excluded.created_at,
 				seen = excluded.seen,
 				reply_to = excluded.reply_to,
 				nonce = excluded.nonce,
@@ -35,6 +58,7 @@ func (d *Database) SaveMessage(message *domain.Message) error {
 			message.ReplyToMessage.ID,
 			message.ReplyToMessage.ChatID,
 			message.ReplyToMessage.AuthorID,
+			replyCreatedAt,
 			message.ReplyToMessage.Seen,
 			message.ReplyToMessage.ReplyTo,
 			message.ReplyToMessage.Nonce,
@@ -45,20 +69,24 @@ func (d *Database) SaveMessage(message *domain.Message) error {
 		}
 	}
 
-	_, err := d.db.Exec(`
+	createdAt := messageCreatedAt(message)
+
+	_, err := tx.Exec(`
 		INSERT INTO messages (
 			id,
 			chat_id,
 			author_id,
+			created_at,
 			seen,
 			reply_to,
 			nonce,
 			content
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			chat_id = excluded.chat_id,
 			author_id = excluded.author_id,
+			created_at = excluded.created_at,
 			seen = excluded.seen,
 			reply_to = excluded.reply_to,
 			nonce = excluded.nonce,
@@ -67,6 +95,7 @@ func (d *Database) SaveMessage(message *domain.Message) error {
 		message.ID,
 		message.ChatID,
 		message.AuthorID,
+		createdAt,
 		message.Seen,
 		message.ReplyTo,
 		message.Nonce,
@@ -74,6 +103,20 @@ func (d *Database) SaveMessage(message *domain.Message) error {
 	)
 
 	return err
+}
+
+func (d *Database) SaveMessage(message *domain.Message) error {
+	tx, err := d.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := saveMessageTx(tx, message); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (d *Database) SaveMessages(messages []domain.Message) error {
@@ -86,69 +129,7 @@ func (d *Database) SaveMessages(messages []domain.Message) error {
 	for i := range messages {
 		msg := &messages[i]
 
-		if msg.ReplyToMessage != nil {
-			msg.ReplyToMessage.ChatID = msg.ChatID
-
-			_, err := tx.Exec(`
-				INSERT INTO messages (
-					id,
-					chat_id,
-					author_id,
-					seen,
-					reply_to,
-					nonce,
-					content
-				)
-				VALUES (?, ?, ?, ?, ?, ?, ?)
-				ON CONFLICT(id) DO UPDATE SET
-					chat_id = excluded.chat_id,
-					author_id = excluded.author_id,
-					seen = excluded.seen,
-					reply_to = excluded.reply_to,
-					nonce = excluded.nonce,
-					content = excluded.content;
-			`,
-				msg.ReplyToMessage.ID,
-				msg.ReplyToMessage.ChatID,
-				msg.ReplyToMessage.AuthorID,
-				msg.ReplyToMessage.Seen,
-				msg.ReplyToMessage.ReplyTo,
-				msg.ReplyToMessage.Nonce,
-				msg.ReplyToMessage.Content,
-			)
-			if err != nil {
-				return err
-			}
-		}
-
-		_, err := tx.Exec(`
-			INSERT INTO messages (
-				id,
-				chat_id,
-				author_id,
-				seen,
-				reply_to,
-				nonce,
-				content
-			)
-			VALUES (?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(id) DO UPDATE SET
-				chat_id = excluded.chat_id,
-				author_id = excluded.author_id,
-				seen = excluded.seen,
-				reply_to = excluded.reply_to,
-				nonce = excluded.nonce,
-				content = excluded.content;
-		`,
-			msg.ID,
-			msg.ChatID,
-			msg.AuthorID,
-			msg.Seen,
-			msg.ReplyTo,
-			msg.Nonce,
-			msg.Content,
-		)
-		if err != nil {
+		if err := saveMessageTx(tx, msg); err != nil {
 			return err
 		}
 	}
@@ -158,16 +139,26 @@ func (d *Database) SaveMessages(messages []domain.Message) error {
 
 func (d *Database) GetMessage(messageID int) (*domain.Message, error) {
 	row := d.db.QueryRow(`
-		SELECT id, chat_id, author_id, seen, reply_to, nonce, content
+		SELECT
+			id,
+			chat_id,
+			author_id,
+			created_at,
+			seen,
+			reply_to,
+			nonce,
+			content
 		FROM messages
 		WHERE id = ?
 	`, messageID)
 
 	var msg domain.Message
+
 	err := row.Scan(
 		&msg.ID,
 		&msg.ChatID,
 		&msg.AuthorID,
+		&msg.CreatedAt,
 		&msg.Seen,
 		&msg.ReplyTo,
 		&msg.Nonce,
@@ -179,6 +170,8 @@ func (d *Database) GetMessage(messageID int) (*domain.Message, error) {
 		}
 		return nil, err
 	}
+
+	msg.CreatedAt = msg.CreatedAt.UTC()
 
 	slice := []domain.Message{msg}
 	if err := d.populateReplies(slice); err != nil {
@@ -198,6 +191,7 @@ func (d *Database) GetMessages(chatID, beforeID, limit int) ([]domain.Message, e
 				id,
 				chat_id,
 				author_id,
+				created_at,
 				seen,
 				reply_to,
 				nonce,
@@ -215,6 +209,7 @@ func (d *Database) GetMessages(chatID, beforeID, limit int) ([]domain.Message, e
 				id,
 				chat_id,
 				author_id,
+				created_at,
 				seen,
 				reply_to,
 				nonce,
@@ -234,12 +229,15 @@ func (d *Database) GetMessages(chatID, beforeID, limit int) ([]domain.Message, e
 	defer rows.Close()
 
 	var messages []domain.Message
+
 	for rows.Next() {
 		var msg domain.Message
+
 		err := rows.Scan(
 			&msg.ID,
 			&msg.ChatID,
 			&msg.AuthorID,
+			&msg.CreatedAt,
 			&msg.Seen,
 			&msg.ReplyTo,
 			&msg.Nonce,
@@ -248,6 +246,9 @@ func (d *Database) GetMessages(chatID, beforeID, limit int) ([]domain.Message, e
 		if err != nil {
 			return nil, err
 		}
+
+		msg.CreatedAt = msg.CreatedAt.UTC()
+
 		messages = append(messages, msg)
 	}
 
@@ -268,6 +269,7 @@ func (d *Database) GetChatLastMessage(chatID int) (*domain.Message, error) {
 			id,
 			chat_id,
 			author_id,
+			created_at,
 			seen,
 			reply_to,
 			nonce,
@@ -279,10 +281,12 @@ func (d *Database) GetChatLastMessage(chatID int) (*domain.Message, error) {
 	`, chatID)
 
 	var msg domain.Message
+
 	err := row.Scan(
 		&msg.ID,
 		&msg.ChatID,
 		&msg.AuthorID,
+		&msg.CreatedAt,
 		&msg.Seen,
 		&msg.ReplyTo,
 		&msg.Nonce,
@@ -295,6 +299,8 @@ func (d *Database) GetChatLastMessage(chatID int) (*domain.Message, error) {
 		return nil, err
 	}
 
+	msg.CreatedAt = msg.CreatedAt.UTC()
+
 	slice := []domain.Message{msg}
 	if err := d.populateReplies(slice); err != nil {
 		return nil, err
@@ -305,12 +311,14 @@ func (d *Database) GetChatLastMessage(chatID int) (*domain.Message, error) {
 
 func (d *Database) GetChatsLastMessages(chatIDs []int) (map[int]*domain.Message, error) {
 	result := make(map[int]*domain.Message)
+
 	if len(chatIDs) == 0 {
 		return result, nil
 	}
 
 	placeholders := make([]string, len(chatIDs))
 	args := make([]any, len(chatIDs))
+
 	for i, id := range chatIDs {
 		placeholders[i] = "?"
 		args[i] = id
@@ -322,15 +330,27 @@ func (d *Database) GetChatsLastMessages(chatIDs []int) (map[int]*domain.Message,
 				id,
 				chat_id,
 				author_id,
+				created_at,
 				seen,
 				reply_to,
 				nonce,
 				content,
-				ROW_NUMBER() OVER (PARTITION BY chat_id ORDER BY id DESC) as rn
+				ROW_NUMBER() OVER (
+					PARTITION BY chat_id
+					ORDER BY id DESC
+				) AS rn
 			FROM messages
 			WHERE chat_id IN (%s)
 		)
-		SELECT id, chat_id, author_id, seen, reply_to, nonce, content
+		SELECT
+			id,
+			chat_id,
+			author_id,
+			created_at,
+			seen,
+			reply_to,
+			nonce,
+			content
 		FROM ranked_messages
 		WHERE rn = 1
 	`, strings.Join(placeholders, ","))
@@ -342,12 +362,15 @@ func (d *Database) GetChatsLastMessages(chatIDs []int) (map[int]*domain.Message,
 	defer rows.Close()
 
 	var messages []domain.Message
+
 	for rows.Next() {
 		var msg domain.Message
+
 		err := rows.Scan(
 			&msg.ID,
 			&msg.ChatID,
 			&msg.AuthorID,
+			&msg.CreatedAt,
 			&msg.Seen,
 			&msg.ReplyTo,
 			&msg.Nonce,
@@ -356,6 +379,9 @@ func (d *Database) GetChatsLastMessages(chatIDs []int) (map[int]*domain.Message,
 		if err != nil {
 			return nil, err
 		}
+
+		msg.CreatedAt = msg.CreatedAt.UTC()
+
 		messages = append(messages, msg)
 	}
 
@@ -376,6 +402,7 @@ func (d *Database) GetChatsLastMessages(chatIDs []int) (map[int]*domain.Message,
 
 func (d *Database) populateReplies(messages []domain.Message) error {
 	replyIDsMap := make(map[int]bool)
+
 	for _, msg := range messages {
 		if msg.ReplyTo != nil {
 			replyIDsMap[*msg.ReplyTo] = true
@@ -396,7 +423,15 @@ func (d *Database) populateReplies(messages []domain.Message) error {
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id, chat_id, author_id, seen, reply_to, nonce, content
+		SELECT
+			id,
+			chat_id,
+			author_id,
+			created_at,
+			seen,
+			reply_to,
+			nonce,
+			content
 		FROM messages
 		WHERE id IN (%s)
 	`, strings.Join(placeholders, ","))
@@ -409,10 +444,12 @@ func (d *Database) populateReplies(messages []domain.Message) error {
 
 	for replyRows.Next() {
 		reply := new(domain.MessageWithDecryptedData)
+
 		err := replyRows.Scan(
 			&reply.ID,
 			&reply.ChatID,
 			&reply.AuthorID,
+			&reply.CreatedAt,
 			&reply.Seen,
 			&reply.ReplyTo,
 			&reply.Nonce,
@@ -421,6 +458,8 @@ func (d *Database) populateReplies(messages []domain.Message) error {
 		if err != nil {
 			return err
 		}
+
+		reply.CreatedAt = reply.CreatedAt.UTC()
 
 		replyMap[reply.ID] = reply
 	}

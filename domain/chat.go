@@ -1,5 +1,7 @@
 package domain
 
+import "time"
+
 type EncryptedSyncKey struct {
 	CipherText string `json:"ciphertext"`
 	Nonce      string `json:"nonce"`
@@ -30,6 +32,7 @@ type RawChat struct {
 	Handshake *Handshake `json:"handshake,omitempty"`
 	Title     string     `json:"title,omitempty"`
 	Type      string     `json:"type"`
+	CreatedAt time.Time  `json:"created_at"`
 }
 
 type Chat struct {

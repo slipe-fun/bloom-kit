@@ -26,9 +26,9 @@ func (d *Database) SaveChat(chat domain.Chat, chatKey, syncKey []byte) error {
 	encodedSyncKey := base64.StdEncoding.EncodeToString(syncKey)
 
 	_, err = d.db.Exec(`
-		INSERT INTO chats (id, members, handshake, chat_key, sync_key)
-		VALUES (?, ?, ?, ?, ?)
-	`, chat.ID, string(membersJSON), string(handshakeJSON), encodedChatKey, encodedSyncKey)
+		INSERT INTO chats (id, members, handshake, chat_key, sync_key, created_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, chat.ID, string(membersJSON), string(handshakeJSON), encodedChatKey, encodedSyncKey, chat.CreatedAt)
 	if err != nil {
 		return err
 	}
@@ -49,9 +49,10 @@ func (d *Database) SaveChats(chats []domain.ChatWithKeys) error {
 			members,
 			handshake,
 			chat_key,
-			sync_key
+			sync_key,
+			created_at
 		)
-		VALUES (?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			members = excluded.members,
 			handshake = excluded.handshake,
@@ -83,6 +84,7 @@ func (d *Database) SaveChats(chats []domain.ChatWithKeys) error {
 			string(handshakeJSON),
 			encodedChatKey,
 			encodedSyncKey,
+			chat.CreatedAt,
 		)
 		if err != nil {
 			return err
@@ -94,7 +96,7 @@ func (d *Database) SaveChats(chats []domain.ChatWithKeys) error {
 
 func (d *Database) GetChat(chatID int) (*domain.ChatWithKeys, error) {
 	row := d.db.QueryRow(`
-		SELECT id, members, handshake, chat_key, sync_key
+		SELECT id, members, handshake, chat_key, sync_key, created_at
 		FROM chats
 		WHERE id = ?
 	`, chatID)
@@ -107,7 +109,7 @@ func (d *Database) GetChat(chatID int) (*domain.ChatWithKeys, error) {
 		encodedSyncKey string
 	)
 
-	err := row.Scan(&chat.ID, &membersJSON, &handshakeJSON, &encodedChatKey, &encodedSyncKey)
+	err := row.Scan(&chat.ID, &membersJSON, &handshakeJSON, &encodedChatKey, &encodedSyncKey, &chat.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, err
@@ -150,7 +152,7 @@ func (d *Database) GetChat(chatID int) (*domain.ChatWithKeys, error) {
 
 func (d *Database) GetChats() ([]domain.ChatWithKeys, error) {
 	rows, err := d.db.Query(`
-		SELECT id, members, handshake, chat_key, sync_key
+		SELECT id, members, handshake, chat_key, sync_key, created_at
 		FROM chats
 	`)
 	if err != nil {
@@ -176,6 +178,7 @@ func (d *Database) GetChats() ([]domain.ChatWithKeys, error) {
 			&handshakeJSON,
 			&encodedChatKey,
 			&encodedSyncKey,
+			&chat.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
