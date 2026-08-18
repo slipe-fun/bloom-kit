@@ -125,6 +125,7 @@ type DecryptedMessage struct {
 	Content   string     `json:"content"`
 	AuthorID  string     `json:"author_id"`
 	Timestamp int64      `json:"timestamp"`
+	CreatedAt time.Time  `json:"created_at"`
 	Seen      *time.Time `json:"seen,omitempty"`
 }
 

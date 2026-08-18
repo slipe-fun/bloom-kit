@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/slipe-fun/bloom-kit/domain"
@@ -20,9 +21,10 @@ type CreateChatRequest struct {
 }
 
 type ChatResponse struct {
-	domain.Chat
-	Me        []byte `json:"me"`
-	Recipient []byte `json:"recipient"`
+	domain.RawChat
+	Me          []byte                            `json:"me"`
+	Recipient   []byte                            `json:"recipient"`
+	LastMessage *domain.DecryptedMessageWithReply `json:"last_message,omitempty"`
 }
 
 func (c *BloomClient) CreateChat(receiverUser *CreateChatRequest) ([]byte, error) {
@@ -194,7 +196,7 @@ func (c *BloomClient) createChat(receiverUser *CreateChatRequest) (*ChatResponse
 	}
 
 	response := ChatResponse{
-		Chat:      *createdChat,
+		RawChat:   createdChat.RawChat,
 		Me:        me,
 		Recipient: recipientJSON,
 	}
@@ -267,43 +269,42 @@ func (c *BloomClient) getChats() (*[]ChatResponse, error) {
 		members = append(members, *recipient)
 		ids = append(ids, chat.ID)
 
-		newChatObject := ChatResponse{
-			Chat: domain.Chat{
-				RawChat: domain.RawChat{
-					ID:        chat.ID,
-					Members:   chat.Members,
-					Handshake: chat.Handshake,
-				},
-			},
-		}
-
-		newChatObject.Me = c.credentials.UserJSON
 		recipientJSON, err := json.Marshal(recipient)
 		if err != nil {
 			continue
 		}
-		newChatObject.Recipient = recipientJSON
+
+		newChatObject := ChatResponse{
+			RawChat:   chat.RawChat,
+			Me:        c.credentials.UserJSON,
+			Recipient: recipientJSON,
+		}
 
 		if lc, exists := localChatsMap[chat.ID]; exists {
 			if chat.EncryptedLastMessage != nil {
 				if lc.LastMessage != nil && lc.LastMessage.ID == chat.EncryptedLastMessage.ID {
-					newChatObject.LastMessage = lc.LastMessage
+					mapped := mappers.MapDomainMessageToDecrypted(lc.LastMessage)
+					newChatObject.LastMessage = &mapped
 				} else {
 					decryptedLastMessage, err := c.messageManager.DecryptMessage(chat.EncryptedLastMessage, lc.ChatKey, lc.SyncKey, userIdentity, recipientIdentity)
 					if err == nil {
-						newChatObject.LastMessage = &domain.Message{
+						msg := domain.Message{
 							MessageWithDecryptedData: domain.MessageWithDecryptedData{
 								RawMessageWithReply: *chat.EncryptedLastMessage,
 								Message:             *decryptedLastMessage,
 							},
 						}
-						messages = append(messages, *newChatObject.LastMessage)
+						messages = append(messages, msg)
+						mapped := mappers.MapDomainMessageToDecrypted(&msg)
+						newChatObject.LastMessage = &mapped
 					} else if lc.LastMessage != nil {
-						newChatObject.LastMessage = lc.LastMessage
+						mapped := mappers.MapDomainMessageToDecrypted(lc.LastMessage)
+						newChatObject.LastMessage = &mapped
 					}
 				}
 			} else if lc.LastMessage != nil {
-				newChatObject.LastMessage = lc.LastMessage
+				mapped := mappers.MapDomainMessageToDecrypted(lc.LastMessage)
+				newChatObject.LastMessage = &mapped
 			}
 		}
 
@@ -346,20 +347,20 @@ func (c *BloomClient) getChats() (*[]ChatResponse, error) {
 			continue
 		}
 
-		var decryptedLastMessage *domain.Message
 		if chat.EncryptedLastMessage != nil {
 			decLastMessage, err := c.messageManager.DecryptMessage(chat.EncryptedLastMessage, chatKey, syncKey, userIdentity, recipientIdentity)
 			if err == nil {
-				decryptedLastMessage = &domain.Message{
+				msg := domain.Message{
 					MessageWithDecryptedData: domain.MessageWithDecryptedData{
 						RawMessageWithReply: *chat.EncryptedLastMessage,
 						Message:             *decLastMessage,
 					},
 				}
-				messages = append(messages, *decryptedLastMessage)
+				messages = append(messages, msg)
 
 				if idx, found := resultMap[id]; found {
-					result[idx].LastMessage = decryptedLastMessage
+					mapped := mappers.MapDomainMessageToDecrypted(&msg)
+					result[idx].LastMessage = &mapped
 				}
 			}
 		}
@@ -407,22 +408,23 @@ func (c *BloomClient) getLocalChats() ([]ChatResponse, error) {
 		return nil, err
 	}
 
+	sort.SliceStable(chats, func(i, j int) bool {
+		leftDate := chats[i].CreatedAt
+		if chats[i].LastMessage != nil {
+			leftDate = chats[i].LastMessage.CreatedAt
+		}
+
+		rightDate := chats[j].CreatedAt
+		if chats[j].LastMessage != nil {
+			rightDate = chats[j].LastMessage.CreatedAt
+		}
+
+		return leftDate.After(rightDate)
+	})
+
 	result := make([]ChatResponse, 0, len(chats))
 	for i := range chats {
 		chat := &chats[i]
-
-		newChatObject := ChatResponse{
-			Chat: domain.Chat{
-				RawChat: domain.RawChat{
-					ID:        chat.ID,
-					Members:   chat.Members,
-					Handshake: chat.Handshake,
-				},
-				LastMessage: chat.LastMessage,
-			},
-		}
-
-		newChatObject.Me = c.credentials.UserJSON
 
 		recipient := getChatOtherMember(&domain.Chat{
 			RawChat: chat.RawChat,
@@ -430,11 +432,24 @@ func (c *BloomClient) getLocalChats() ([]ChatResponse, error) {
 		if recipient == nil {
 			continue
 		}
+
 		recipientJSON, err := json.Marshal(recipient)
 		if err != nil {
 			continue
 		}
-		newChatObject.Recipient = recipientJSON
+
+		var lastMessage *domain.DecryptedMessageWithReply
+		if chat.LastMessage != nil {
+			mapped := mappers.MapDomainMessageToDecrypted(chat.LastMessage)
+			lastMessage = &mapped
+		}
+
+		newChatObject := ChatResponse{
+			RawChat:     chat.RawChat,
+			Me:          c.credentials.UserJSON,
+			Recipient:   recipientJSON,
+			LastMessage: lastMessage,
+		}
 
 		result = append(result, newChatObject)
 	}

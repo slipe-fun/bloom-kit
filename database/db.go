@@ -61,7 +61,7 @@ func NewDatabase(encryptionKey []byte, storagePath string) (*Database, error) {
 	    reply_to INTEGER,
 	    nonce TEXT NOT NULL,
 	    content TEXT NOT NULL,
-		created_at DATETIME NOT NULL
+		created_at DATETIME NOT NULL,
 
 	    FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE,
 	    FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE,

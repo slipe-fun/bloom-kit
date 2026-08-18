@@ -109,6 +109,12 @@ func (c *BloomClient) sendMessage(chatID int, replyToID *int, content string) (*
 		return nil, err
 	}
 
+	if err := c.database.SaveMessage(message); err != nil {
+		return nil, err
+	}
+
+	c.notifyChatsUpdated()
+
 	var replyTo *domain.DecryptedMessage
 	if message.ReplyToMessage != nil {
 		replyTo = &domain.DecryptedMessage{
@@ -116,6 +122,7 @@ func (c *BloomClient) sendMessage(chatID int, replyToID *int, content string) (*
 			Content:   string(message.ReplyToMessage.Content),
 			AuthorID:  message.ReplyToMessage.AuthorID,
 			Timestamp: message.ReplyToMessage.Timestamp,
+			CreatedAt: message.ReplyToMessage.CreatedAt,
 			Seen:      message.ReplyToMessage.Seen,
 		}
 	}
@@ -126,6 +133,7 @@ func (c *BloomClient) sendMessage(chatID int, replyToID *int, content string) (*
 			Content:   content,
 			AuthorID:  userIdentity.ID,
 			Timestamp: message.Timestamp,
+			CreatedAt: message.CreatedAt,
 			Seen:      message.Seen,
 		},
 		ReplyTo: replyTo,
