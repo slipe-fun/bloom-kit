@@ -6,11 +6,10 @@ import (
 	"errors"
 
 	"github.com/slipe-fun/bloom-kit/domain"
-	"github.com/slipe-fun/bloom-kit/managers/message"
 	"github.com/slipe-fun/bloom-kit/mappers"
 )
 
-func (c *BloomClient) loadMessages(chatID, beforeID int) ([]domain.DecryptedMessageWithReply, error) {
+func (c *BloomClient) loadMessagesFromStorage(chatID, beforeID int) ([]domain.DecryptedMessageWithReply, error) {
 	if c.credentials == nil {
 		return nil, errors.New("unauthorized: client is not logged in")
 	}
@@ -25,55 +24,48 @@ func (c *BloomClient) loadMessages(chatID, beforeID int) ([]domain.DecryptedMess
 	if len(messagesFromStorage) > 0 {
 		sourceMessages = messagesFromStorage
 	} else {
-		chat, err := c.database.GetChat(chatID)
-		if err != nil {
-			return nil, err
-		}
+		return []domain.DecryptedMessageWithReply{}, nil
+	}
 
-		recipient := getChatOtherMember(&domain.Chat{
-			RawChat: chat.RawChat,
-		}, c.credentials.UserID)
-		recipientIdentity := mappers.ConvertUserToIdentity(recipient)
+	result := make([]domain.DecryptedMessageWithReply, len(sourceMessages))
+	for i := range sourceMessages {
+		result[i] = mappers.MapDomainMessageToDecrypted(&sourceMessages[i])
+	}
 
-		user := getChatOtherMember(&domain.Chat{
-			RawChat: chat.RawChat,
-		}, recipient.ID)
-		userIdentity := mappers.ConvertUserToIdentity(user)
+	return result, nil
+}
 
-		direction := message.DirectionBefore
-		if beforeID == 0 {
-			direction = message.DirectionAfter
-		}
+func (c *BloomClient) getLastMessagesFromServer(chatID int) ([]domain.DecryptedMessageWithReply, error) {
+	if c.credentials == nil {
+		return nil, errors.New("unauthorized: client is not logged in")
+	}
 
-		messagesFromServer, err := c.messageManager.GetMessages(
-			context.Background(),
-			chatID,
-			beforeID,
-			direction,
-			chat.ChatKey,
-			chat.SyncKey,
-			userIdentity,
-			recipientIdentity,
-		)
-		if err != nil {
-			return nil, err
-		}
+	chat, err := c.database.GetChat(chatID)
+	if err != nil {
+		return nil, err
+	}
 
-		if len(messagesFromServer) > 0 {
-			for i, j := 0, len(messagesFromServer)-1; i < j; i, j = i+1, j-1 {
-				messagesFromServer[i], messagesFromServer[j] = messagesFromServer[j], messagesFromServer[i]
-			}
+	recipient := getChatOtherMember(&domain.Chat{
+		RawChat: chat.RawChat,
+	}, c.credentials.UserID)
+	recipientIdentity := mappers.ConvertUserToIdentity(recipient)
 
-			err = c.database.SaveMessages(messagesFromServer)
-			if err != nil {
-				return nil, err
-			}
-			sourceMessages = messagesFromServer
+	user := getChatOtherMember(&domain.Chat{
+		RawChat: chat.RawChat,
+	}, recipient.ID)
+	userIdentity := mappers.ConvertUserToIdentity(user)
 
-			if beforeID == 0 {
-				c.notifyChatsUpdated()
-			}
-		}
+	var sourceMessages []domain.Message
+
+	messages, err := c.messageManager.GetMessages(context.Background(), chatID, 0, "after", chat.ChatKey, chat.SyncKey, userIdentity, recipientIdentity)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(messages) > 0 {
+		sourceMessages = messages
+	} else {
+		return []domain.DecryptedMessageWithReply{}, nil
 	}
 
 	result := make([]domain.DecryptedMessageWithReply, len(sourceMessages))
@@ -158,17 +150,31 @@ func (c *BloomClient) SendMessage(chatID int, replyToID int, content string) ([]
 	return json.Marshal(message)
 }
 
-func (c *BloomClient) LoadMessages(chatID, beforeID int) ([]byte, error) {
+func (c *BloomClient) LoadMessages(sourceType string, chatID, beforeID int) ([]byte, error) {
 	if c.credentials == nil {
 		return nil, errors.New("unauthorized: client is not logged in")
 	}
 
-	messages, err := c.loadMessages(chatID, beforeID)
-	if err != nil {
-		return nil, err
+	var result []domain.DecryptedMessageWithReply
+
+	switch sourceType {
+	case "server":
+		messages, err := c.getLastMessagesFromServer(chatID)
+		if err != nil {
+			return nil, err
+		}
+
+		result = messages
+	case "storage":
+		messages, err := c.loadMessagesFromStorage(chatID, beforeID)
+		if err != nil {
+			return nil, err
+		}
+
+		result = messages
 	}
 
-	return json.Marshal(messages)
+	return json.Marshal(result)
 }
 
 func (c *BloomClient) RegisterMessagesListener(listener MessagesListener) {
